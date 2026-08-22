@@ -2,7 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-
+import citizenRoutes from "./routes/citizenRoutes.js";
 import connectDB from "./config/db.js";
 
 // Auth & Admin Routes
@@ -50,6 +50,11 @@ app.use(
 );
 
 app.use(cookieParser());
+
+app.use(
+  "/api/citizen",
+  citizenRoutes
+);
 
 // Citizen APIs
 app.use("/api/citizen/auth", citizenAuthRoutes);
