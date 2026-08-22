@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+dotenv.config();
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import citizenRoutes from "./routes/citizenRoutes.js";
@@ -24,7 +25,7 @@ import governmentProposalRoutes from "./routes/governmentProposalRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 import industryProposalRoutes from "./routes/industryProposalRoutes.js";
 
-dotenv.config();
+
 
 connectDB();
 

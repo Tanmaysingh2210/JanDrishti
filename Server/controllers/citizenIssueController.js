@@ -1,4 +1,79 @@
 import Issue from "../models/issue.js";
+import cloudinary from "../config/cloudinary.js";
+
+// ==========================================
+// UPLOAD EVIDENCE TO CLOUDINARY
+// ==========================================
+
+export const uploadEvidence = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file provided",
+      });
+    }
+
+    const isVideo =
+      req.file.mimetype.startsWith("video/");
+
+    const resourceType = isVideo
+      ? "video"
+      : "image";
+
+    const folder = isVideo
+      ? "jandrishti/citizen/videos"
+      : "jandrishti/citizen/photos";
+
+    const result = await new Promise(
+      (resolve, reject) => {
+
+        const uploadStream =
+          cloudinary.uploader.upload_stream(
+            {
+              resource_type: resourceType,
+              folder,
+            },
+
+            (error, result) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve(result);
+              }
+            }
+          );
+
+        uploadStream.end(req.file.buffer);
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Evidence uploaded successfully",
+
+      file: {
+        url: result.secure_url,
+        publicId: result.public_id,
+        type: isVideo ? "video" : "image",
+        originalName: req.file.originalname,
+      },
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Cloudinary Upload Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to upload evidence",
+    });
+  }
+};
+
 
 export const submitIssue = async (req, res) => {
   try {
