@@ -57,8 +57,9 @@ function LoginPage() {
               <p className="text-[11px] font-bold text-on-surface-variant mb-3 tracking-widest uppercase">
                 Select Your Role
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 {[
+                  { id: 'citizen', label: 'CITIZEN', icon: 'person' },
                   { id: 'govt', label: 'GOVT', icon: 'account_balance' },
                   { id: 'univ', label: 'UNIV', icon: 'school' },
                   { id: 'industry', label: 'INDUSTRY', icon: 'factory' }
@@ -72,11 +73,11 @@ function LoginPage() {
                       onChange={() => setRole(item.id)}
                       className="peer sr-only"
                     />
-                    <div className="flex flex-col items-center justify-center p-3.5 rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-low peer-checked:border-primary-container peer-checked:bg-primary-fixed peer-checked:text-primary-container transition-all">
-                      <span className="material-symbols-outlined mb-1 text-2xl" style={{ fontVariationSettings: "'FILL' 0", fontWeight: 300 }}>
+                    <div className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-outline-variant bg-surface hover:bg-surface-container-low peer-checked:border-primary-container peer-checked:bg-primary-fixed peer-checked:text-primary-container transition-all">
+                      <span className="material-symbols-outlined mb-1 text-xl" style={{ fontVariationSettings: "'FILL' 0", fontWeight: 300 }}>
                         {item.icon}
                       </span>
-                      <span className="text-xs font-semibold">{item.label}</span>
+                      <span className="text-[10px] font-semibold">{item.label}</span>
                     </div>
                   </label>
                 ))}
@@ -162,7 +163,7 @@ function LoginPage() {
         {/* Footer */}
         <footer className="text-center space-y-3 pt-2">
           <p className="text-xs text-on-surface-variant">
-            Need access? <a className="text-primary-container font-semibold hover:underline" href="#">Contact your institution</a>
+            New Citizen? <Link className="text-primary-container font-semibold hover:underline" to="/register">Register here</Link> | Need access? <a className="text-primary-container font-semibold hover:underline" href="#">Contact institution</a>
           </p>
           <div className="flex justify-center gap-3 text-xs text-outline">
             <a className="hover:text-primary-container transition-colors" href="#">Privacy Policy</a>
