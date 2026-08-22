@@ -105,3 +105,56 @@ export const updateGovernmentProfile = async (req, res) => {
     });
   }
 };
+
+export const createGovernment = async (req, res) => {
+  try {
+    const { name, code, department, officeType, district, state } = req.body;
+
+    if (!name || !code) {
+      return res.status(400).json({
+        success: false,
+        message: "Name and code are required fields",
+      });
+    }
+
+    const normalizedCode = code.trim().toUpperCase();
+
+    const existingGovt = await Government.findOne({ code: normalizedCode });
+    if (existingGovt) {
+      return res.status(409).json({
+        success: false,
+        message: "Government organization with this code already exists",
+      });
+    }
+
+    const government = await Government.create({
+      name: name.trim(),
+      code: normalizedCode,
+      department: department?.trim(),
+      officeType: officeType || "other",
+      district: district?.trim(),
+      state: state?.trim() || "Jharkhand",
+      isActive: true,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Government organization created successfully",
+      government,
+    });
+  } catch (error) {
+    console.error("Create Government Error:", error);
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Government code already exists",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
