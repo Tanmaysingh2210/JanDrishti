@@ -141,7 +141,7 @@ export default function LocationScreen() {
       // 6. Continue to app
       // =====================================
 
-      router.replace("/");
+      router.replace("/home");
 
     } catch (error) {
 
@@ -163,11 +163,11 @@ export default function LocationScreen() {
   };
 
   const handleMaybeLater = () => {
-    router.replace("/");
+    router.replace("/home");
   };
 
   const handleSkip = () => {
-    router.replace("/");
+    router.replace("/home");
   };
 
   return (
