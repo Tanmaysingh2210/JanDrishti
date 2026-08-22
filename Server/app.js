@@ -4,29 +4,31 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import connectDB from "./config/db.js";
-import citizenAuthRoutes
-  from "./routes/citizenAuthRoutes.js";
-import departmentRoutes
-  from "./routes/departmentRoutes.js";
-import universityRoutes
-  from "./routes/universityRoutes.js";
-import universityUserRoutes
-  from "./routes/universityUserRoutes.js";
-import governmentRoutes
-  from "./routes/governmentRoutes.js";
-import governmentUserRoutes
-  from "./routes/governmentUserRoutes.js";
-import governmentAuthRoutes
-  from "./routes/governmentAuthRoutes.js";
-import industryAuthRoutes
-  from "./routes/industryAuthRoutes.js";
+
+// Auth & Admin Routes
+import citizenAuthRoutes from "./routes/citizenAuthRoutes.js";
+import universityRoutes from "./routes/universityRoutes.js";
+import universityUserRoutes from "./routes/universityUserRoutes.js";
+import universityAuthRoutes from "./routes/universityAuthRoutes.js";
+import departmentRoutes from "./routes/departmentRoutes.js";
+import governmentRoutes from "./routes/governmentRoutes.js";
+import governmentUserRoutes from "./routes/governmentUserRoutes.js";
+import governmentAuthRoutes from "./routes/governmentAuthRoutes.js";
+import industryAuthRoutes from "./routes/industryAuthRoutes.js";
+
+// Core Workflow Routes
+import citizenIssueRoutes from "./routes/citizenIssueRoutes.js";
+import governmentIssueRoutes from "./routes/governmentIssueRoutes.js";
+import universityProposalRoutes from "./routes/universityProposalRoutes.js";
+import governmentProposalRoutes from "./routes/governmentProposalRoutes.js";
+import projectRoutes from "./routes/projectRoutes.js";
+import industryProposalRoutes from "./routes/industryProposalRoutes.js";
 
 dotenv.config();
 
 connectDB();
 
 const app = express();
-
 
 app.use(
   cors({
@@ -49,52 +51,28 @@ app.use(
 
 app.use(cookieParser());
 
+// Citizen APIs
+app.use("/api/citizen/auth", citizenAuthRoutes);
+app.use("/api/citizen/issues", citizenIssueRoutes);
 
-// Citizen
-app.use(
-  "/api/citizen/auth",
-  citizenAuthRoutes
-);
+// University APIs
+app.use("/api/university", universityRoutes);
+app.use("/api/university/auth", universityAuthRoutes);
+app.use("/api/university/users", universityUserRoutes);
+app.use("/api/university/departments", departmentRoutes);
+app.use("/api/university/proposals", universityProposalRoutes);
 
+// Government APIs
+app.use("/api/government", governmentRoutes);
+app.use("/api/government/users", governmentUserRoutes);
+app.use("/api/government/auth", governmentAuthRoutes);
+app.use("/api/government/issues", governmentIssueRoutes);
+app.use("/api/government/proposals", governmentProposalRoutes);
 
-// University
-app.use(
-  "/api/university",
-  universityRoutes
-);
-
-app.use(
-  "/api/university/users",
-  universityUserRoutes
-);
-
-app.use(
-  "/api/university/departments",
-  departmentRoutes
-);
-
-
-// Government
-app.use(
-  "/api/government",
-  governmentRoutes
-);
-
-app.use(
-  "/api/government/users",
-  governmentUserRoutes
-);
-
-app.use(
-  "/api/government/auth",
-  governmentAuthRoutes
-);
-
-app.use(
-  "/api/industry/auth",
-  industryAuthRoutes
-);
-
+// Shared Projects & Industry Support APIs
+app.use("/api/projects", projectRoutes);
+app.use("/api/industry/auth", industryAuthRoutes);
+app.use("/api/industry/proposals", industryProposalRoutes);
 
 app.get("/", (req, res) => {
   res.json({
@@ -103,12 +81,8 @@ app.get("/", (req, res) => {
   });
 });
 
-
-const PORT =
-  process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(
-    `Server running on port ${PORT}`
-  );
+  console.log(`Server running on port ${PORT}`);
 });
