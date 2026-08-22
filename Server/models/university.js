@@ -27,6 +27,8 @@ const universitySchema = new mongoose.Schema(
       type: String,
       enum: [
         "government",
+        "central",
+        "state",
         "private",
         "deemed",
         "other",

@@ -1,0 +1,46 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
+		"name": "JanDrishti - Create Government",
+		"description": "Postman Collection for creating a Government Organization Document in JanDrishti API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create Government Organization",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Department of Urban Development & Housing\",\n  \"code\": \"UDHD-RANCHI-01\",\n  \"department\": \"Urban Infrastructure & Smart Cities\",\n  \"officeType\": \"department\",\n  \"district\": \"Ranchi\",\n  \"state\": \"Jharkhand\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:5000/api/government",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"government"
+					]
+				},
+				"description": "Creates a new Government Organization document in JanDrishti database."
+			},
+			"response": []
+		}
+	]
+}
