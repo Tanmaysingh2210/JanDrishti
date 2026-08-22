@@ -162,8 +162,10 @@ function LoginPage() {
 
         {/* Footer */}
         <footer className="text-center space-y-3 pt-2">
-          <p className="text-xs text-on-surface-variant">
-            New Citizen? <Link className="text-primary-container font-semibold hover:underline" to="/register">Register here</Link> | Need access? <a className="text-primary-container font-semibold hover:underline" href="#">Contact institution</a>
+          <p className="text-xs text-on-surface-variant flex flex-wrap items-center justify-center gap-2">
+            <span>New Citizen? <Link className="text-primary-container font-semibold hover:underline" to="/register">Register here</Link></span>
+            <span>|</span>
+            <span>University? <Link className="text-primary-container font-semibold hover:underline" to="/university-register">Register University</Link></span>
           </p>
           <div className="flex justify-center gap-3 text-xs text-outline">
             <a className="hover:text-primary-container transition-colors" href="#">Privacy Policy</a>
