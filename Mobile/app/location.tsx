@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { API_URL } from "../constants/api";
 import {
   View,
   Text,
@@ -7,22 +8,166 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  Alert,
+  ActivityIndicator,
+  Linking,
 } from "react-native";
-
+import * as Location from "expo-location";
+import * as SecureStore from "expo-secure-store";
 import { useRouter } from "expo-router";
 
-export default function Location() {
+export default function LocationScreen() {
   const router = useRouter();
 
-  const handleAllowLocation = () => {
-    console.log("Allow location clicked");
+  const [loading, setLoading] = useState(false);
 
-    // Location permission will be added here.
+  const handleAllowLocation = async () => {
+    try {
+
+      setLoading(true);
+
+      // =====================================
+      // 1. Request location permission
+      // =====================================
+
+      const {
+        status,
+      } = await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+
+        Alert.alert(
+          "Location Permission Required",
+          "NagarDrishti needs your location to identify where a civic issue is reported.",
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+            },
+            {
+              text: "Open Settings",
+              onPress: () => Linking.openSettings(),
+            },
+          ]
+        );
+
+        return;
+      }
+
+      // =====================================
+      // 2. Get current location
+      // =====================================
+
+      const location =
+        await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+
+      const latitude =
+        location.coords.latitude;
+
+      const longitude =
+        location.coords.longitude;
+
+      console.log("Latitude:", latitude);
+      console.log("Longitude:", longitude);
+
+      // =====================================
+      // 3. Get JWT from SecureStore
+      // =====================================
+
+      const token =
+        await SecureStore.getItemAsync(
+          "citizen_token"
+        );
+
+      if (!token) {
+
+        Alert.alert(
+          "Session Error",
+          "Your login session was not found. Please login again."
+        );
+
+        router.replace("/login");
+
+        return;
+      }
+
+      // =====================================
+      // 4. Send location to backend
+      // =====================================
+
+      const response = await fetch(
+        `${API_URL}/api/citizen/location`,
+        {
+          method: "PATCH",
+
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            latitude,
+            longitude,
+          }),
+        }
+      );
+
+      const data =
+        await response.json();
+
+      // =====================================
+      // 5. Backend response
+      // =====================================
+
+      if (!response.ok) {
+
+        Alert.alert(
+          "Location Error",
+          data.message ||
+          "Unable to save your location."
+        );
+
+        return;
+      }
+
+      console.log(
+        "Location saved:",
+        data.location
+      );
+
+      // =====================================
+      // 6. Continue to app
+      // =====================================
+
+      router.replace("/");
+
+    } catch (error) {
+
+      console.error(
+        "Location error:",
+        error
+      );
+
+      Alert.alert(
+        "Error",
+        "Something went wrong while getting your location."
+      );
+
+    } finally {
+
+      setLoading(false);
+
+    }
   };
 
   const handleMaybeLater = () => {
-    // For now continue to the app.
-    console.log("Maybe later clicked");
+    router.replace("/");
+  };
+
+  const handleSkip = () => {
+    router.replace("/");
   };
 
   return (
@@ -34,43 +179,31 @@ export default function Location() {
 
       <View style={styles.container}>
 
-        {/* ================= TOP ================= */}
+        {/* SKIP */}
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={handleSkip}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.skipText}>Skip</Text>
+        </TouchableOpacity>
 
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            onPress={() => router.replace("/")}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.skipText}>
-              Skip
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-
-        {/* ================= MAIN ================= */}
-
+        {/* MAIN CONTENT */}
         <View style={styles.content}>
 
-          {/* LOCATION IMAGE */}
-
+          {/* IMAGE */}
           <Image
             source={require("../assets/location.png")}
             style={styles.locationImage}
             resizeMode="contain"
           />
 
-
           {/* TITLE */}
-
           <Text style={styles.title}>
-            Help Us Locate Issues{"\n"}
-            Automatically.
+            Help Us Locate Issues{"\n"}Automatically.
           </Text>
 
-
           {/* DESCRIPTION */}
-
           <Text style={styles.description}>
             Allowing location access helps{"\n"}
             NagarDrishti identify exactly where a civic{"\n"}
@@ -80,36 +213,31 @@ export default function Location() {
 
         </View>
 
-
-        {/* ================= BOTTOM ================= */}
-
+        {/* BOTTOM BUTTONS */}
         <View style={styles.bottomContainer}>
-
-          {/* ALLOW LOCATION */}
 
           <TouchableOpacity
             style={styles.allowButton}
             onPress={handleAllowLocation}
+            disabled={loading}
             activeOpacity={0.8}
           >
-            <Text style={styles.locationIcon}>
-              ●
-            </Text>
-
-            <Text style={styles.allowText}>
-              Allow Location Access
-            </Text>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.allowButtonText}>
+                📍 Allow Location Access
+              </Text>
+            )}
           </TouchableOpacity>
-
-
-          {/* MAYBE LATER */}
 
           <TouchableOpacity
             style={styles.laterButton}
             onPress={handleMaybeLater}
+            disabled={loading}
             activeOpacity={0.8}
           >
-            <Text style={styles.laterText}>
+            <Text style={styles.laterButtonText}>
               Maybe Later
             </Text>
           </TouchableOpacity>
@@ -121,13 +249,7 @@ export default function Location() {
   );
 }
 
-
-/* =====================================================
-   STYLES
-===================================================== */
-
 const styles = StyleSheet.create({
-
   safeArea: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -138,112 +260,78 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
 
-  /* ================= TOP ================= */
-
-  topBar: {
-    height: 55,
-    paddingHorizontal: 22,
-    alignItems: "flex-end",
-    justifyContent: "center",
+  skipButton: {
+    position: "absolute",
+    top: 15,
+    right: 20,
+    zIndex: 10,
   },
 
   skipText: {
     color: "#F76B57",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "500",
   },
-
-  /* ================= CONTENT ================= */
 
   content: {
     flex: 1,
     alignItems: "center",
     paddingHorizontal: 25,
+    paddingTop: 115,
   },
-
-  /* ================= IMAGE ================= */
 
   locationImage: {
-    width: 195,
-    height: 195,
-    marginTop: 58,
+    width: 210,
+    height: 210,
+    marginBottom: 25,
   },
-
-  /* ================= TITLE ================= */
 
   title: {
     textAlign: "center",
-    color: "#202326",
     fontSize: 28,
     lineHeight: 35,
     fontWeight: "700",
-    marginTop: 25,
+    color: "#202124",
+    marginBottom: 18,
   },
-
-  /* ================= DESCRIPTION ================= */
 
   description: {
     textAlign: "center",
-    color: "#654C43",
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: "400",
-    marginTop: 20,
+    color: "#604C43",
   },
-
-  /* ================= BOTTOM ================= */
 
   bottomContainer: {
-    backgroundColor: "#FFFDFB",
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 38,
+    paddingBottom: 30,
+    gap: 15,
   },
-
-  /* ================= ALLOW ================= */
 
   allowButton: {
     height: 60,
-    width: "100%",
-    borderRadius: 15,
-    backgroundColor: "#F86A5A",
-
-    flexDirection: "row",
+    borderRadius: 17,
+    backgroundColor: "#F76B57",
     alignItems: "center",
     justifyContent: "center",
   },
 
-  locationIcon: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    marginRight: 8,
-  },
-
-  allowText: {
+  allowButtonText: {
     color: "#FFFFFF",
     fontSize: 19,
-    fontWeight: "700",
+    fontWeight: "600",
   },
-
-  /* ================= LATER ================= */
 
   laterButton: {
-    height: 62,
-    width: "100%",
-    borderRadius: 15,
-
-    backgroundColor: "#FFFFFF",
-
+    height: 60,
+    borderRadius: 17,
     borderWidth: 1,
     borderColor: "#F76B57",
-
     alignItems: "center",
     justifyContent: "center",
-
-    marginTop: 15,
   },
 
-  laterText: {
+  laterButtonText: {
     color: "#F76B57",
     fontSize: 19,
     fontWeight: "600",
