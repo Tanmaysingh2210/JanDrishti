@@ -52,6 +52,17 @@ const citizenSchema = new mongoose.Schema(
       select: false,
     },
 
+    location: {
+      type: {
+        type: String,
+        enum: ["Point"],
+      },
+
+      coordinates: {
+        type: [Number],
+      },
+    },
+
     isVerified: {
       type: Boolean,
       default: false,
@@ -66,6 +77,11 @@ const citizenSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+citizenSchema.index({
+  location: "2dsphere",
+});
+
 
 const Citizen = mongoose.model("Citizen", citizenSchema);
 
