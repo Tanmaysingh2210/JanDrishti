@@ -4,28 +4,22 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import connectDB from "./config/db.js";
-
 import citizenAuthRoutes
   from "./routes/citizenAuthRoutes.js";
-
 import departmentRoutes
   from "./routes/departmentRoutes.js";
-
 import universityRoutes
   from "./routes/universityRoutes.js";
-
 import universityUserRoutes
   from "./routes/universityUserRoutes.js";
-
 import governmentRoutes
   from "./routes/governmentRoutes.js";
-
 import governmentUserRoutes
   from "./routes/governmentUserRoutes.js";
-
 import governmentAuthRoutes
   from "./routes/governmentAuthRoutes.js";
-
+import industryAuthRoutes
+  from "./routes/industryAuthRoutes.js";
 
 dotenv.config();
 
@@ -94,6 +88,11 @@ app.use(
 app.use(
   "/api/government/auth",
   governmentAuthRoutes
+);
+
+app.use(
+  "/api/industry/auth",
+  industryAuthRoutes
 );
 
 
