@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import MapView, { Marker } from "react-native-maps";
+
 import {
     View,
     Text,
@@ -225,7 +226,7 @@ export default function HomeScreen() {
 
                     <TouchableOpacity
                         style={styles.reportButton}
-                        onPress={handleReportIssue}
+                        onPress={() => router.push("/evidence" as any)}
                         activeOpacity={0.8}
                     >
 
@@ -690,7 +691,7 @@ const styles = StyleSheet.create({
     /* ================= REPORT ================= */
 
     reportCard: {
-        backgroundColor: "#2937D8",
+        backgroundColor: "#F76B57",
         borderRadius: 16,
         paddingHorizontal: 18,
         paddingVertical: 29,
@@ -723,14 +724,14 @@ const styles = StyleSheet.create({
 
     reportButtonIcon: {
         fontSize: 13,
-        color: "#2937D8",
+        color: "#F76B57",
         marginRight: 6,
     },
 
     reportButtonText: {
         fontSize: 11,
         fontWeight: "700",
-        color: "#2937D8",
+        color: "#F76B57",
     },
 
     /* ================= MAP ================= */
