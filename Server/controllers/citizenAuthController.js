@@ -244,6 +244,8 @@ export const registerCitizen = async (req, res) => {
       success: true,
       message: "Citizen registered successfully",
 
+      token,
+
       citizen: {
         id: citizen._id,
         fullName: citizen.fullName,
@@ -275,48 +277,61 @@ export const registerCitizen = async (req, res) => {
 
 export const loginCitizen = async (req, res) => {
   try {
-
     const {
-      email,
+      identifier,
       password,
     } = req.body;
-
 
     // -------------------------------------------------
     // VALIDATION
     // -------------------------------------------------
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required",
+        message: "Mobile number/email and password are required",
       });
     }
 
+    // -------------------------------------------------
+    // NORMALIZE INPUT
+    // -------------------------------------------------
 
-    const normalizedEmail = email
+    const normalizedIdentifier = identifier
       .trim()
       .toLowerCase();
 
+    const normalizedMobile = identifier
+      .trim()
+      .replace(/\D/g, "");
 
     // -------------------------------------------------
-    // FIND CITIZEN
+    // FIND CITIZEN BY EMAIL OR MOBILE
     // -------------------------------------------------
 
     const citizen = await Citizen
       .findOne({
-        email: normalizedEmail,
+        $or: [
+          {
+            email: normalizedIdentifier,
+          },
+          {
+            mobileNumber: normalizedMobile,
+          },
+        ],
       })
       .select("+password");
 
+    // -------------------------------------------------
+    // CITIZEN NOT FOUND
+    // -------------------------------------------------
 
     if (!citizen) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message: "Invalid mobile/email or password",
       });
     }
-
 
     // -------------------------------------------------
     // CHECK ACTIVE
@@ -329,40 +344,33 @@ export const loginCitizen = async (req, res) => {
       });
     }
 
-
     // -------------------------------------------------
     // COMPARE PASSWORD
     // -------------------------------------------------
 
-    const isPasswordCorrect =
-      await bcrypt.compare(
-        password,
-        citizen.password
-      );
-
+    const isPasswordCorrect = await bcrypt.compare(
+      password,
+      citizen.password
+    );
 
     if (!isPasswordCorrect) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message: "Invalid mobile/email or password",
       });
     }
-
 
     // -------------------------------------------------
     // GENERATE JWT
     // -------------------------------------------------
 
-    const token =
-      generateToken(citizen._id);
-
+    const token = generateToken(citizen._id);
 
     // -------------------------------------------------
     // SET COOKIE
     // -------------------------------------------------
 
     setTokenCookie(res, token);
-
 
     // -------------------------------------------------
     // RESPONSE
@@ -371,6 +379,9 @@ export const loginCitizen = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Login successful",
+
+      // Important for React Native
+      token,
 
       citizen: {
         id: citizen._id,
@@ -383,7 +394,6 @@ export const loginCitizen = async (req, res) => {
     });
 
   } catch (error) {
-
     console.error(
       "Login Citizen Error:",
       error
