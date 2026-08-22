@@ -1,0 +1,47 @@
+{
+	"info": {
+		"_postman_id": "b2c3d4e5-f6a7-8901-bcde-2345678901bc",
+		"name": "JanDrishti - Create Government User",
+		"description": "Postman Collection for creating a GovernmentUser document in JanDrishti API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Create Government User",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"governmentId\": \"<PASTE_YOUR_GOVERNMENT_ID_HERE>\",\n  \"fullName\": \"Rajesh Kumar\",\n  \"email\": \"rajesh.kumar@gov.in\",\n  \"mobileNumber\": \"9876543210\",\n  \"employeeId\": \"EMP-GOVT-1001\",\n  \"designation\": \"District Nodal Officer\",\n  \"role\": \"government_admin\",\n  \"department\": \"Urban Development & Housing\",\n  \"district\": \"Ranchi\",\n  \"password\": \"GovtAdmin@123\",\n  \"confirmPassword\": \"GovtAdmin@123\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:5000/api/government/users",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"government",
+						"users"
+					]
+				},
+				"description": "Creates a new GovernmentUser document linked to a Government organization ID."
+			},
+			"response": []
+		}
+	]
+}

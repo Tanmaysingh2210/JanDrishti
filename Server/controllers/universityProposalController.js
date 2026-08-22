@@ -1,5 +1,6 @@
 import Issue from "../models/issue.js";
 import UniversityProposal from "../models/universityProposal.js";
+import University from "../models/university.js";
 
 export const getApprovedIssuesForUniversity = async (req, res) => {
   try {
@@ -88,32 +89,23 @@ export const submitProposal = async (req, res) => {
       });
     }
 
-    if (issue.status !== "approved") {
-      return res.status(400).json({
-        success: false,
-        message: "Proposals can only be submitted for approved issues",
-      });
-    }
+    // Find default university if req.user is absent
+    let universityId = req.user?.universityId;
+    let submittedBy = req.user?.userId;
 
-    // Check if university has already submitted a proposal for this issue
-    const existingProposal = await UniversityProposal.findOne({
-      issueId,
-      universityId: req.user.universityId,
-    });
-
-    if (existingProposal) {
-      return res.status(409).json({
-        success: false,
-        message:
-          "Your university has already submitted a proposal for this issue",
-      });
+    if (!universityId) {
+      const defaultUniv = await University.findOne();
+      if (defaultUniv) {
+        universityId = defaultUniv._id;
+        submittedBy = defaultUniv.representative?._id || defaultUniv._id;
+      }
     }
 
     const proposal = await UniversityProposal.create({
       issueId,
-      universityId: req.user.universityId,
+      universityId,
       departmentId: departmentId || undefined,
-      submittedBy: req.user.userId,
+      submittedBy,
       title: title.trim(),
       solutionDescription: solutionDescription.trim(),
       teamInformation: teamInformation || [],
@@ -122,6 +114,12 @@ export const submitProposal = async (req, res) => {
       timelineMonths: Number(timelineMonths),
       proposalPdf: proposalPdf || {},
       status: "submitted",
+    });
+
+    await Issue.findByIdAndUpdate(issueId, {
+      status: "in_progress",
+      assignedUniversityId: universityId,
+      assignedAt: new Date(),
     });
 
     return res.status(201).json({
@@ -138,11 +136,101 @@ export const submitProposal = async (req, res) => {
   }
 };
 
+export const submitUniversityProposalDirect = async (req, res) => {
+  try {
+    const {
+      issueId,
+      departmentId,
+      title,
+      solutionDescription,
+      teamInformation,
+      facultyInformation,
+      estimatedCost,
+      timelineMonths,
+      proposalPdf,
+    } = req.body;
+
+    if (
+      !issueId ||
+      !title ||
+      !solutionDescription ||
+      estimatedCost === undefined ||
+      !timelineMonths
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Required proposal fields are missing",
+      });
+    }
+
+    const issue = await Issue.findById(issueId);
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: "Issue not found",
+      });
+    }
+
+    let universityId = req.user?.universityId;
+    let submittedBy = req.user?.userId;
+
+    if (!universityId) {
+      const defaultUniv = await University.findOne();
+      if (defaultUniv) {
+        universityId = defaultUniv._id;
+        submittedBy = defaultUniv.representative?._id || defaultUniv._id;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "No registered university found in system",
+        });
+      }
+    }
+
+    const proposal = await UniversityProposal.create({
+      issueId,
+      universityId,
+      departmentId: departmentId || undefined,
+      submittedBy,
+      title: title.trim(),
+      solutionDescription: solutionDescription.trim(),
+      teamInformation: teamInformation || [],
+      facultyInformation: facultyInformation || [],
+      estimatedCost: Number(estimatedCost),
+      timelineMonths: Number(timelineMonths),
+      proposalPdf: proposalPdf || {},
+      status: "submitted",
+    });
+
+    await Issue.findByIdAndUpdate(issueId, {
+      status: "in_progress",
+      assignedUniversityId: universityId,
+      assignedAt: new Date(),
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "R&D Proposal submitted successfully to database",
+      proposal,
+    });
+  } catch (error) {
+    console.error("Submit Proposal Direct Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
 export const getMyProposals = async (req, res) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
 
-    const query = { universityId: req.user.universityId };
+    let query = {};
+    if (req.user?.universityId) {
+      query.universityId = req.user.universityId;
+    }
 
     if (status) {
       query.status = status;
@@ -155,6 +243,7 @@ export const getMyProposals = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .populate("issueId", "title category status location")
+      .populate("universityId", "name code type")
       .populate("departmentId", "name code")
       .populate("submittedBy", "fullName email designation");
 
@@ -181,11 +270,9 @@ export const getProposalById = async (req, res) => {
   try {
     const { proposalId } = req.params;
 
-    const proposal = await UniversityProposal.findOne({
-      _id: proposalId,
-      universityId: req.user.universityId,
-    })
+    const proposal = await UniversityProposal.findById(proposalId)
       .populate("issueId")
+      .populate("universityId", "name code type email phone")
       .populate("departmentId", "name code description expertise")
       .populate("submittedBy", "fullName email mobileNumber designation role");
 

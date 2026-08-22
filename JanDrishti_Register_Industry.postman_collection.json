@@ -1,0 +1,48 @@
+{
+	"info": {
+		"_postman_id": "d4e5f6a7-b8c9-0123-def0-4567890123de",
+		"name": "JanDrishti - Register Industry",
+		"description": "Postman Collection for registering an Industry entity in JanDrishti API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Register Industry",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"companyName\": \"TechCorp Global Solutions Pvt Ltd\",\n  \"companyCode\": \"TECHCORP-01\",\n  \"registrationNumber\": \"U72200JH2026PTC012345\",\n  \"industryType\": \"Information Technology & CSR\",\n  \"email\": \"csr@techcorp.com\",\n  \"phone\": \"9876543210\",\n  \"website\": \"https://techcorp.com\",\n  \"address\": \"Tech Park, Phase II, Namkum\",\n  \"district\": \"Ranchi\",\n  \"state\": \"Jharkhand\",\n  \"contactPerson\": {\n    \"name\": \"Vikramaditya Roy\",\n    \"designation\": \"Head of Corporate Social Responsibility\",\n    \"mobileNumber\": \"9876543211\"\n  },\n  \"password\": \"IndustryCSR@123\",\n  \"confirmPassword\": \"IndustryCSR@123\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/industry/auth/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"industry",
+						"auth",
+						"register"
+					]
+				},
+				"description": "Registers a new Industry partner company in JanDrishti."
+			},
+			"response": []
+		}
+	]
+}

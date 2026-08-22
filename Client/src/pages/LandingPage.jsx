@@ -71,34 +71,13 @@ function LandingPage() {
 
           <div className="flex gap-3 items-center">
             <button 
-              onClick={() => navigate('/dashboard')}
-              className="bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">dashboard</span>
-              Govt Portal
-            </button>
-            <button 
-              onClick={() => navigate('/university-dashboard')}
-              className="bg-emerald-green/10 text-emerald-green border border-emerald-green/30 hover:bg-emerald-green/20 transition-all px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">school</span>
-              Univ Portal
-            </button>
-            <button 
-              onClick={() => navigate('/industry-dashboard')}
-              className="bg-action-orange/10 text-action-orange border border-action-orange/30 hover:bg-action-orange/20 transition-all px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">factory</span>
-              Industry Portal
-            </button>
-            <button 
               onClick={() => navigate('/login')}
               className="text-primary hover:bg-surface-container-low transition-all px-4 py-2 rounded-xl text-label-sm font-label-sm border border-primary hidden md:block font-medium cursor-pointer"
             >
               Login
             </button>
             <button 
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/register')}
               className="bg-action-orange text-white hover:bg-opacity-90 transition-all px-4 py-2 rounded-xl text-label-sm font-label-sm font-semibold shadow-md shadow-action-orange/20 cursor-pointer"
             >
               Register

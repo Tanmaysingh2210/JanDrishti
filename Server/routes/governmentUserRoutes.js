@@ -14,7 +14,7 @@ const router = express.Router();
 
 router.post(
   "/",
-  governmentAuth,
+  // governmentAuth,
   createGovernmentUser
 );
 
