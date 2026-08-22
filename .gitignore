@@ -137,6 +137,13 @@ dist
 !.yarn/sdks
 !.yarn/versions
 
+# Hugging Face model cache
+.hf_cache/
+
+# Model outputs and figures
+artifacts/
+reports/
+
 # Vite files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*

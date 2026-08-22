@@ -1,0 +1,14 @@
+{
+  "category": {
+    "accessibility": 0,
+    "agriculture": 1,
+    "education": 2,
+    "energy": 3,
+    "environment": 4,
+    "healthcare": 5,
+    "public administration": 6,
+    "rural livelihood": 7,
+    "urban development": 8,
+    "water related": 9
+  }
+}
