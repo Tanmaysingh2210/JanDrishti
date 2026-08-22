@@ -19,22 +19,22 @@ function UniversityRegistrationPage() {
   // Form State
   const [formData, setFormData] = useState({
     // Stage 1: University Details
-    universityName: 'Indian Institute of Technology Ranchi',
-    shortName: 'IIT Ranchi',
-    code: 'IITR-JH',
+    universityName: '',
+    shortName: '',
+    code: '',
     type: 'central',
-    email: 'info@iitranchi.ac.in',
-    phone: '9876543210',
-    website: 'https://iitranchi.ac.in',
-    address: 'Main Campus, Namkum',
+    email: '',
+    phone: '',
+    website: '',
+    address: '',
     state: 'Jharkhand',
     district: 'Ranchi',
 
     // Stage 2: Representative & Password
-    representativeName: 'Prof. A. K. Sharma',
-    representativeEmail: 'admin@iitranchi.ac.in',
-    representativeMobile: '9876543211',
-    representativeDesignation: 'Dean of Research & Innovation',
+    representativeName: '',
+    representativeEmail: '',
+    representativeMobile: '',
+    representativeDesignation: '',
     password: '',
     confirmPassword: '',
   });
