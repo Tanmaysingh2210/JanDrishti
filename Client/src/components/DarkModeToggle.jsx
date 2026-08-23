@@ -5,7 +5,7 @@ export default function DarkModeToggle({ className = "" }) {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('jandrishti_theme');
       if (stored) return stored === 'dark';
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      return false;
     }
     return false;
   });

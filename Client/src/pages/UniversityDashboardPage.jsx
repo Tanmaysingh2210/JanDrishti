@@ -153,32 +153,14 @@ function UniversityDashboardPage() {
         credentials: 'include',
       });
       const data = await res.json();
-      if (res.ok && data.success && Array.isArray(data.proposals) && data.proposals.length > 0) {
+      if (res.ok && data.success && Array.isArray(data.proposals)) {
         setReceivedIndustryProposals(data.proposals);
       } else {
-        setReceivedIndustryProposals([
-          {
-            _id: 'DEMO-IND-PROP-01',
-            title: 'CSR Grant & IoT Sensor Fleet for Smart Water Purification',
-            offeringType: 'funding & hardware',
-            estimatedValue: 1500000,
-            description: 'TechCorp CSR Foundation offers ₹15L grant funding and 50 IoT turbidity sensors to support University R&D deployment.',
-            status: 'submitted',
-            industryId: { companyName: 'TechCorp CSR Foundation' },
-          },
-          {
-            _id: 'DEMO-IND-PROP-02',
-            title: 'Solar Microgrid Battery Storage Sponsorship',
-            offeringType: 'equipment & technology',
-            estimatedValue: 2500000,
-            description: 'GreenEnergy Ltd. provides high-efficiency solar battery banks and technical engineering mentorship.',
-            status: 'submitted',
-            industryId: { companyName: 'GreenEnergy Ltd.' },
-          }
-        ]);
+        setReceivedIndustryProposals([]);
       }
     } catch (err) {
       console.error('Error fetching received industry proposals:', err);
+      setReceivedIndustryProposals([]);
     } finally {
       setLoadingIndustryProposals(false);
     }
@@ -1584,6 +1566,7 @@ function UniversityDashboardPage() {
                   {receivedIndustryProposals.map((prop, idx) => {
                     const isAccepted = prop.status === 'accepted';
                     const isRejected = prop.status === 'rejected';
+                    const projectTitle = prop.projectId?.title || prop.issueId?.title || 'R&D Civic Project';
 
                     return (
                       <div
@@ -1596,16 +1579,21 @@ function UniversityDashboardPage() {
                       >
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
                               <span className="bg-[#F36F56]/10 text-[#F36F56] px-2.5 py-0.5 rounded text-[10px] font-bold">
-                                {prop.industryId?.companyName || 'Corporate Partner'}
+                                {prop.industryId?.companyName || prop.industryId?.email || 'Corporate Partner'}
+                              </span>
+                              <span className="bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-0.5 rounded text-[10px] font-bold">
+                                Project: {projectTitle}
                               </span>
                               <span className="text-xs text-[#58423d]">
                                 Type: <strong className="capitalize">{prop.offeringType || 'Funding'}</strong>
                               </span>
-                              <span className="text-xs text-[#58423d]">
-                                Value: <strong>₹{prop.estimatedValue?.toLocaleString() || '15,000,000'}</strong>
-                              </span>
+                              {prop.estimatedValue > 0 && (
+                                <span className="text-xs text-[#58423d]">
+                                  Value: <strong>₹{Number(prop.estimatedValue).toLocaleString('en-IN')}</strong>
+                                </span>
+                              )}
                             </div>
                             <h3 className="text-base font-bold text-[#191c1e]">{prop.title}</h3>
                           </div>
@@ -1623,12 +1611,32 @@ function UniversityDashboardPage() {
                           {prop.description}
                         </p>
 
+                        {prop.resourcesOffered && (
+                          <div className="text-xs text-[#58423d] bg-amber-50/50 p-2.5 rounded-lg border border-amber-200/60">
+                            <strong>Resources Offered:</strong> {prop.resourcesOffered}
+                          </div>
+                        )}
+
+                        {prop.proposalDocument?.url && (
+                          <div>
+                            <a
+                              href={prop.proposalDocument.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs text-[#2F36ED] font-bold hover:underline"
+                            >
+                              <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
+                              View Attached Proposal Document PDF →
+                            </a>
+                          </div>
+                        )}
+
                         {!isAccepted && !isRejected && (
                           <div className="flex items-center gap-3 pt-2">
                             <button
                               onClick={() => handleReviewIndustryProposal(prop._id, 'accepted', prop.title)}
                               disabled={reviewingProposalId === prop._id}
-                              className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                              className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
                             >
                               <span className="material-symbols-outlined text-sm">check_circle</span>
                               Accept CSR Grant &amp; Support
@@ -1636,7 +1644,7 @@ function UniversityDashboardPage() {
                             <button
                               onClick={() => handleReviewIndustryProposal(prop._id, 'rejected', prop.title)}
                               disabled={reviewingProposalId === prop._id}
-                              className="px-4 py-2 border border-red-300 text-red-600 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors cursor-pointer flex items-center gap-1.5"
+                              className="px-4 py-2 border border-red-300 text-red-600 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
                             >
                               <span className="material-symbols-outlined text-sm">cancel</span>
                               Decline
