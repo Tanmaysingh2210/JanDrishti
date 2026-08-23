@@ -88,7 +88,7 @@ function CitizenHomePage() {
   const fetchCitizenIssues = async () => {
     setLoadingIssues(true);
     try {
-      const res = await fetch('http://localhost:3000/api/citizen/issues/my', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/citizen/issues/my', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -109,7 +109,7 @@ function CitizenHomePage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3000/api/citizen/auth/logout', {
+      await fetch('https://jandrishti-em1u.onrender.com/api/citizen/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
@@ -135,7 +135,7 @@ function CitizenHomePage() {
     if (!text || text.length < 4) return;
     setClassifying(true);
     try {
-      const res = await fetch('http://localhost:3000/api/citizen/issues/classify', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/citizen/issues/classify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -172,7 +172,7 @@ function CitizenHomePage() {
     const finalCategory = manualCategory || aiCategory?.category || 'other';
     setSubmitting(true);
     try {
-      const res = await fetch('http://localhost:3000/api/citizen/issues', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/citizen/issues', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

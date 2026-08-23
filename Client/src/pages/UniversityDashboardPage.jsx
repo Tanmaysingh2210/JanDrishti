@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCloudinaryUpload } from '../hooks/useCloudinaryUpload';
 import DarkModeToggle from '../components/DarkModeToggle';
+import { openPdfDocument, fileToBase64 } from '../utils/pdfViewer';
 
 function UniversityDashboardPage() {
   const navigate = useNavigate();
@@ -88,7 +89,7 @@ function UniversityDashboardPage() {
 
   const fetchUniversityProfile = async () => {
     try {
-      const res = await fetch('http://localhost:3000/api/university/me', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/university/me', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -117,13 +118,13 @@ function UniversityDashboardPage() {
   const fetchChallenges = async () => {
     setLoadingChallenges(true);
     try {
-      let res = await fetch('http://localhost:3000/api/university/challenges', {
+      let res = await fetch('https://jandrishti-em1u.onrender.com/api/university/challenges', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
       if (!res.ok) {
-        res = await fetch('http://localhost:3000/api/issues', {
+        res = await fetch('https://jandrishti-em1u.onrender.com/api/issues', {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -146,7 +147,7 @@ function UniversityDashboardPage() {
   const fetchReceivedIndustryProposals = async () => {
     setLoadingIndustryProposals(true);
     try {
-      const res = await fetch('http://localhost:3000/api/industry/proposals/university/received', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/industry/proposals/university/received', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -190,7 +191,7 @@ function UniversityDashboardPage() {
         prev.map(p => p._id === proposalId ? { ...p, status } : p)
       );
 
-      const res = await fetch(`http://localhost:3000/api/industry/proposals/university/${proposalId}/review`, {
+      const res = await fetch(`https://jandrishti-em1u.onrender.com/api/industry/proposals/university/${proposalId}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -213,7 +214,7 @@ function UniversityDashboardPage() {
   const fetchProposals = async () => {
     setLoadingProposals(true);
     try {
-      const res = await fetch('http://localhost:3000/api/university/proposals/my', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/university/proposals/my', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -234,7 +235,7 @@ function UniversityDashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3000/api/university/auth/logout', {
+      await fetch('https://jandrishti-em1u.onrender.com/api/university/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
@@ -277,7 +278,7 @@ function UniversityDashboardPage() {
 
     const projId = proj._id || proj.id;
     try {
-      const res = await fetch(`http://localhost:3000/api/projects/${projId}`, {
+      const res = await fetch(`https://jandrishti-em1u.onrender.com/api/projects/${projId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -314,14 +315,23 @@ function UniversityDashboardPage() {
     const projId = selectedProjectDetail?._id || selectedProjectDetail?.id || selectedProjectDetail?.issueId?._id || selectedProjectDetail?.issueId;
 
     try {
+      let updatePdfUrl = null;
+      if (newUpdateForm.pdfFile) {
+        try {
+          updatePdfUrl = await fileToBase64(newUpdateForm.pdfFile);
+        } catch (fileErr) {
+          console.error('Error converting update PDF to base64:', fileErr);
+        }
+      }
+
       const payload = {
         title: newUpdateForm.title.trim(),
         description: newUpdateForm.notes.trim(),
         milestone: newUpdateForm.milestone,
-        media: newUpdateForm.pdfFile ? [{ originalName: newUpdateForm.pdfFile.name, url: '#' }] : []
+        media: newUpdateForm.pdfFile ? [{ originalName: newUpdateForm.pdfFile.name, url: updatePdfUrl }] : []
       };
 
-      const res = await fetch(`http://localhost:3000/api/projects/${projId}/updates`, {
+      const res = await fetch(`https://jandrishti-em1u.onrender.com/api/projects/${projId}/updates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -387,6 +397,15 @@ function UniversityDashboardPage() {
 
     setSubmittingProposal(true);
     try {
+      let pdfUrl = 'https://storage.jandrishti.gov.in/proposals/doc.pdf';
+      if (proposalForm.pdfFile) {
+        try {
+          pdfUrl = await fileToBase64(proposalForm.pdfFile);
+        } catch (fileErr) {
+          console.error('Error converting PDF to base64:', fileErr);
+        }
+      }
+
       const challengeId = selectedChallenge._id || selectedChallenge.id;
       const payload = {
         issueId: challengeId,
@@ -413,11 +432,11 @@ function UniversityDashboardPage() {
         ],
         proposalPdf: {
           originalName: proposalForm.pdfFile ? proposalForm.pdfFile.name : 'R&D_Proposal_Document.pdf',
-          url: 'https://storage.jandrishti.gov.in/proposals/doc.pdf',
+          url: pdfUrl,
         },
       };
 
-      const res = await fetch('http://localhost:3000/api/university/proposals', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/university/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -445,9 +464,21 @@ function UniversityDashboardPage() {
     p => p.status === 'accepted' || p.status === 'approved'
   );
 
+  // Filter out challenges that are already assigned (in_progress) - universities can't propose on those
+  const openChallenges = challenges.filter(c =>
+    c.status !== 'in_progress' && c.status !== 'resolved' && c.status !== 'closed' && !c.assignedUniversityId
+  );
+
+  // Check if this university already submitted a proposal for the selected challenge
+  const hasAlreadyProposed = selectedChallenge
+    ? submittedProposals.some(p =>
+        (p.issueId?._id || p.issueId) === (selectedChallenge._id || selectedChallenge.id)
+      )
+    : false;
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { id: 'challenges', label: 'Challenges Feed', icon: 'explore', badge: challenges.length > 0 ? challenges.length : null },
+    { id: 'challenges', label: 'Challenges Feed', icon: 'explore', badge: openChallenges.length > 0 ? openChallenges.length : null },
     { id: 'my_proposals', label: 'My Proposals', icon: 'assignment_turned_in', badge: submittedProposals.length > 0 ? submittedProposals.length : null },
     { id: 'accepted_projects', label: 'Projects', icon: 'folder_special', badge: acceptedProjects.length > 0 ? acceptedProjects.length : null },
     { id: 'industry_proposals', label: 'Industry CSR Grants', icon: 'factory', badge: receivedIndustryProposals.length > 0 ? receivedIndustryProposals.length : null },
@@ -689,37 +720,46 @@ function UniversityDashboardPage() {
                     onClick={() => setActiveView('challenges')}
                     className="text-xs font-bold text-[#2F36ED] hover:underline cursor-pointer"
                   >
-                    View All ({challenges.length}) →
+                    View All ({openChallenges.length}) →
                   </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {challenges.length > 0 ? (
-                    challenges.slice(0, 4).map((c, idx) => (
-                      <div
-                        key={c._id || idx}
-                        onClick={() => openChallengeDetail(c)}
-                        className="p-5 rounded-xl border border-[#e0e3e5] bg-[#f8f9fb] hover:border-[#2F36ED] transition-all cursor-pointer flex flex-col justify-between space-y-3"
-                      >
-                        <div>
-                          <div className="flex justify-between items-start mb-2">
-                            <span className="bg-[#2F36ED]/10 text-[#2F36ED] px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase">
-                              {c.category || 'Civic Issue'}
-                            </span>
-                            <span className="text-xs text-[#58423d] font-mono">{c.status || 'under_review'}</span>
+                  {openChallenges.length > 0 ? (
+                    openChallenges.slice(0, 4).map((c, idx) => {
+                      const alreadyProposed = submittedProposals.some(p =>
+                        (p.issueId?._id || p.issueId) === (c._id || c.id)
+                      );
+                      return (
+                        <div
+                          key={c._id || idx}
+                          onClick={() => openChallengeDetail(c)}
+                          className="p-5 rounded-xl border border-[#e0e3e5] bg-[#f8f9fb] hover:border-[#2F36ED] transition-all cursor-pointer flex flex-col justify-between space-y-3"
+                        >
+                          <div>
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="bg-[#2F36ED]/10 text-[#2F36ED] px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase">
+                                {c.category || 'Civic Issue'}
+                              </span>
+                              {alreadyProposed ? (
+                                <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">✓ Proposed</span>
+                              ) : (
+                                <span className="text-xs text-[#58423d] font-mono">{c.status || 'under_review'}</span>
+                              )}
+                            </div>
+                            <h4 className="text-sm font-bold text-[#191c1e] mb-1">{c.title}</h4>
+                            <p className="text-xs text-[#58423d] line-clamp-2">{c.description}</p>
                           </div>
-                          <h4 className="text-sm font-bold text-[#191c1e] mb-1">{c.title}</h4>
-                          <p className="text-xs text-[#58423d] line-clamp-2">{c.description}</p>
+                          <div className="flex justify-between items-center pt-2 border-t border-[#e0e3e5] text-xs">
+                            <span className="text-[#58423d]">{c.location?.district || 'Ranchi'}, Jharkhand</span>
+                            <span className="font-bold text-[#2F36ED]">{alreadyProposed ? 'View Details →' : 'View Full Page & Proposal →'}</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between items-center pt-2 border-t border-[#e0e3e5] text-xs">
-                          <span className="text-[#58423d]">{c.location?.district || 'Ranchi'}, Jharkhand</span>
-                          <span className="font-bold text-[#2F36ED]">View Full Page &amp; Proposal →</span>
-                        </div>
-                      </div>
-                    ))
+                      );
+                    })
                   ) : (
                     <div className="col-span-2 p-8 text-center text-[#58423d]">
-                      No active challenges in database.
+                      No open challenges available.
                     </div>
                   )}
                 </div>
@@ -751,33 +791,46 @@ function UniversityDashboardPage() {
                   <div className="w-8 h-8 border-3 border-[#2F36ED] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                   <p className="text-xs font-bold text-[#191c1e]">Loading civic challenges from MongoDB database...</p>
                 </div>
-              ) : challenges.length > 0 ? (
+              ) : openChallenges.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {challenges.map((c, idx) => (
-                    <div
-                      key={c._id || idx}
-                      onClick={() => openChallengeDetail(c)}
-                      className="bg-white border border-[#e0e3e5] rounded-2xl p-6 shadow-sm hover:border-[#2F36ED] transition-all cursor-pointer flex flex-col justify-between space-y-4"
-                    >
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="bg-[#2F36ED]/10 text-[#2F36ED] px-2.5 py-1 rounded text-[10px] font-extrabold uppercase">
-                            {c.category || 'Civic Issue'}
-                          </span>
-                          <span className="text-xs text-[#58423d] font-semibold">{c.status || 'under_review'}</span>
+                  {openChallenges.map((c, idx) => {
+                    const alreadyProposed = submittedProposals.some(p =>
+                      (p.issueId?._id || p.issueId) === (c._id || c.id)
+                    );
+                    return (
+                      <div
+                        key={c._id || idx}
+                        onClick={() => openChallengeDetail(c)}
+                        className="bg-white border border-[#e0e3e5] rounded-2xl p-6 shadow-sm hover:border-[#2F36ED] transition-all cursor-pointer flex flex-col justify-between space-y-4"
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="bg-[#2F36ED]/10 text-[#2F36ED] px-2.5 py-1 rounded text-[10px] font-extrabold uppercase">
+                              {c.category || 'Civic Issue'}
+                            </span>
+                            {alreadyProposed ? (
+                              <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">✓ Proposal Submitted</span>
+                            ) : (
+                              <span className="text-xs text-[#58423d] font-semibold">{c.status || 'under_review'}</span>
+                            )}
+                          </div>
+                          <h3 className="text-base font-bold text-[#191c1e] mb-2">{c.title}</h3>
+                          <p className="text-xs text-[#58423d] leading-relaxed line-clamp-3">{c.description}</p>
                         </div>
-                        <h3 className="text-base font-bold text-[#191c1e] mb-2">{c.title}</h3>
-                        <p className="text-xs text-[#58423d] leading-relaxed line-clamp-3">{c.description}</p>
-                      </div>
 
-                      <div className="border-t border-[#e0e3e5] pt-3 flex justify-between items-center text-xs">
-                        <span className="text-[#58423d]">{c.location?.district || 'Ranchi'}, Jharkhand</span>
-                        <button className="bg-[#2F36ED] text-white px-3.5 py-1.5 rounded-xl font-bold text-xs hover:bg-blue-800 transition-colors shadow-xs">
-                          Propose R&amp;D Solution →
-                        </button>
+                        <div className="border-t border-[#e0e3e5] pt-3 flex justify-between items-center text-xs">
+                          <span className="text-[#58423d]">{c.location?.district || 'Ranchi'}, Jharkhand</span>
+                          {alreadyProposed ? (
+                            <span className="text-emerald-600 font-bold">✓ Proposal Submitted</span>
+                          ) : (
+                            <button className="bg-[#2F36ED] text-white px-3.5 py-1.5 rounded-xl font-bold text-xs hover:bg-blue-800 transition-colors shadow-xs">
+                              Propose R&amp;D Solution →
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 text-center text-[#58423d] shadow-sm">
@@ -844,6 +897,22 @@ function UniversityDashboardPage() {
                       Submit University R&amp;D Proposal
                     </h3>
 
+                    {hasAlreadyProposed ? (
+                      <div className="flex flex-col items-center justify-center gap-3 py-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center">
+                        <span className="material-symbols-outlined text-4xl text-emerald-500">check_circle</span>
+                        <div>
+                          <p className="text-sm font-extrabold text-emerald-700">Proposal Already Submitted</p>
+                          <p className="text-xs text-emerald-600 mt-1 max-w-[220px] mx-auto">Your university has already submitted a proposal for this challenge. Only one proposal is allowed per issue.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveView('my_proposals')}
+                          className="mt-1 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors cursor-pointer"
+                        >
+                          View My Proposals
+                        </button>
+                      </div>
+                    ) : (
                     <form onSubmit={handleProposalSubmit} className="space-y-4 text-xs">
                       <div>
                         <label className="block font-bold text-[#191c1e] mb-1">Proposal Title *</label>
@@ -906,7 +975,20 @@ function UniversityDashboardPage() {
                           />
                           <span className="material-symbols-outlined text-3xl text-[#2F36ED] mb-1">picture_as_pdf</span>
                           {proposalForm.pdfFile ? (
-                            <p className="text-xs font-bold text-emerald-600 truncate">{proposalForm.pdfFile.name}</p>
+                            <div>
+                              <p className="text-xs font-bold text-emerald-600 truncate">{proposalForm.pdfFile.name}</p>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPdfDocument(proposalForm.pdfFile);
+                                }}
+                                className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#2F36ED] bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 hover:bg-blue-100 relative z-10 cursor-pointer"
+                              >
+                                <span className="material-symbols-outlined text-xs">visibility</span>
+                                Preview Uploaded PDF File
+                              </button>
+                            </div>
                           ) : (
                             <div>
                               <p className="text-xs font-bold text-[#191c1e]">Upload Technical Proposal PDF</p>
@@ -927,6 +1009,7 @@ function UniversityDashboardPage() {
                         {submittingProposal ? 'Saving to Database...' : 'Submit R&D Proposal to Database'}
                       </button>
                     </form>
+                    )}
                   </div>
                 </div>
               </div>
@@ -980,6 +1063,24 @@ function UniversityDashboardPage() {
                       </div>
 
                       <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => openPdfDocument(prop.proposalPdf, {
+                            title: prop.title,
+                            university: currentUniversity?.name || currentUser?.fullName,
+                            faculty: (Array.isArray(prop.facultyInformation) && prop.facultyInformation[0]?.name) || 'Faculty R&D Lead',
+                            description: prop.solutionDescription,
+                            budget: prop.estimatedCost,
+                            timeline: prop.timelineMonths,
+                            team: prop.teamInformation,
+                            date: prop.createdAt,
+                            type: 'University R&D Proposal'
+                          })}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#2F36ED]/10 text-[#2F36ED] rounded-xl text-xs font-bold hover:bg-[#2F36ED]/20 transition-colors cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
+                          View PDF
+                        </button>
                         <span className="px-3 py-1 bg-amber-50 text-amber-800 border border-amber-300 rounded-full text-xs font-bold">
                           {prop.status || 'submitted'}
                         </span>
@@ -1345,6 +1446,16 @@ function UniversityDashboardPage() {
                             className="hidden"
                           />
                         </label>
+                        {newUpdateForm.pdfFile && (
+                          <button
+                            type="button"
+                            onClick={() => openPdfDocument(newUpdateForm.pdfFile)}
+                            className="px-3 py-2 bg-blue-50 text-[#2F36ED] border border-blue-200 hover:bg-blue-100 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-xs">visibility</span>
+                            Preview PDF
+                          </button>
+                        )}
                       </div>
 
                       <button
@@ -1413,11 +1524,22 @@ function UniversityDashboardPage() {
                             {mediaList.length > 0 && (
                               <div className="flex flex-wrap gap-2 pt-1">
                                 {mediaList.map((m, mIdx) => (
-                                  <div key={mIdx} className="flex items-center gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 w-fit">
+                                  <button
+                                    key={mIdx}
+                                    type="button"
+                                    onClick={() => openPdfDocument(m, {
+                                      title: title || 'R&D Progress Report Document',
+                                      university: authorStr,
+                                      description: desc,
+                                      date: dateStr,
+                                      type: 'Milestone Progress Report'
+                                    })}
+                                    className="flex items-center gap-2 p-2.5 bg-blue-50 border border-blue-200 hover:border-blue-400 rounded-xl text-xs text-blue-900 w-fit cursor-pointer transition-colors text-left"
+                                  >
                                     <span className="material-symbols-outlined text-blue-600 text-base">picture_as_pdf</span>
                                     <span className="font-semibold">Attached Document:</span>
                                     <span className="underline font-bold">{m.originalName || m.url || 'Report.pdf'}</span>
-                                  </div>
+                                  </button>
                                 ))}
                               </div>
                             )}

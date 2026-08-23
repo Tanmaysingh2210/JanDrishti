@@ -60,7 +60,7 @@ function CitizenRegistrationPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/citizen/auth/register', {
+      const response = await fetch('https://jandrishti-em1u.onrender.com/api/citizen/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

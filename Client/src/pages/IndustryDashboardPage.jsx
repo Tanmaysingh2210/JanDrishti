@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import DarkModeToggle from '../components/DarkModeToggle';
+import { openPdfDocument, fileToBase64 } from '../utils/pdfViewer';
 
 function IndustryDashboardPage() {
   const navigate = useNavigate();
@@ -58,7 +59,7 @@ function IndustryDashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3000/api/industry/auth/logout', {
+      await fetch('https://jandrishti-em1u.onrender.com/api/industry/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
@@ -83,7 +84,7 @@ function IndustryDashboardPage() {
   const fetchOpportunities = async () => {
     setLoadingOpportunities(true);
     try {
-      const res = await fetch('http://localhost:3000/api/industry/proposals/projects', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/industry/proposals/projects', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -102,7 +103,7 @@ function IndustryDashboardPage() {
   const fetchSubmittedProposals = async () => {
     setLoadingProposals(true);
     try {
-      const res = await fetch('http://localhost:3000/api/industry/proposals/my', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/industry/proposals/my', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -139,6 +140,15 @@ function IndustryDashboardPage() {
 
     setSubmittingProposal(true);
     try {
+      let pdfUrl = 'https://storage.jandrishti.gov.in/industry-proposals/doc.pdf';
+      if (pledgeForm.pdfFile) {
+        try {
+          pdfUrl = await fileToBase64(pledgeForm.pdfFile);
+        } catch (fileErr) {
+          console.error('Error converting pledge PDF to base64:', fileErr);
+        }
+      }
+
       const projectId = selectedOpportunityModal._id;
       const issueId = selectedOpportunityModal.issueId?._id || selectedOpportunityModal.issueId || selectedOpportunityModal._id;
       const universityId = selectedOpportunityModal.universityId?._id || selectedOpportunityModal.universityId || selectedOpportunityModal.assignedUniversityId?._id || selectedOpportunityModal.assignedUniversityId;
@@ -155,11 +165,11 @@ function IndustryDashboardPage() {
         timeline: pledgeForm.timeline,
         proposalDocument: {
           originalName: pledgeForm.pdfFile ? pledgeForm.pdfFile.name : 'CSR_Partnership_Proposal.pdf',
-          url: 'https://storage.jandrishti.gov.in/industry-proposals/doc.pdf',
+          url: pdfUrl,
         },
       };
 
-      const res = await fetch('http://localhost:3000/api/industry/proposals', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/industry/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -190,7 +200,7 @@ function IndustryDashboardPage() {
 
     const projId = proj._id || proj.id;
     try {
-      const res = await fetch(`http://localhost:3000/api/projects/${projId}`, {
+      const res = await fetch(`https://jandrishti-em1u.onrender.com/api/projects/${projId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -227,14 +237,23 @@ function IndustryDashboardPage() {
     const projId = selectedCsrProject?._id || selectedCsrProject?.id || '64f1e5829d10e82c81a2f102';
 
     try {
+      let updatePdfUrl = null;
+      if (newUpdateForm.pdfFile) {
+        try {
+          updatePdfUrl = await fileToBase64(newUpdateForm.pdfFile);
+        } catch (fileErr) {
+          console.error('Error converting update PDF to base64:', fileErr);
+        }
+      }
+
       const payload = {
         title: newUpdateForm.title.trim(),
         description: newUpdateForm.notes.trim(),
         milestone: newUpdateForm.milestone,
-        media: newUpdateForm.pdfFile ? [{ url: 'https://storage.jandrishti.gov.in/reports/report.pdf', originalName: newUpdateForm.pdfFile.name }] : [],
+        media: newUpdateForm.pdfFile ? [{ url: updatePdfUrl, originalName: newUpdateForm.pdfFile.name }] : [],
       };
 
-      const res = await fetch(`http://localhost:3000/api/projects/${projId}/updates`, {
+      const res = await fetch(`https://jandrishti-em1u.onrender.com/api/projects/${projId}/updates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -811,6 +830,40 @@ function IndustryDashboardPage() {
                       ></textarea>
                     </div>
 
+                    <div>
+                      <label className="block text-xs font-bold text-[#0F172A] mb-1">Attach CSR Proposal PDF Document (Optional)</label>
+                      <div className="border-2 border-dashed border-[#DFE3E8] hover:border-[#2F36ED] rounded-xl p-4 text-center bg-[#F8FAFC] transition-all cursor-pointer relative">
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          onChange={(e) => setPledgeForm({ ...pledgeForm, pdfFile: e.target.files[0] })}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <span className="material-symbols-outlined text-3xl text-[#2F36ED] mb-1">picture_as_pdf</span>
+                        {pledgeForm.pdfFile ? (
+                          <div>
+                            <p className="text-xs font-bold text-emerald-600 truncate">{pledgeForm.pdfFile.name}</p>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openPdfDocument(pledgeForm.pdfFile);
+                              }}
+                              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-extrabold text-[#2F36ED] bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 hover:bg-blue-100 relative z-10 cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-xs">visibility</span>
+                              Preview Uploaded PDF File
+                            </button>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="text-xs font-bold text-[#0F172A]">Upload Industry CSR Proposal PDF</p>
+                            <p className="text-[10px] text-[#767588]">Click or drag PDF file here</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <button
                       type="submit"
                       disabled={submittingProposal}
@@ -1052,11 +1105,23 @@ function IndustryDashboardPage() {
                         </div>
                       </div>
 
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openPdfDocument(acceptedProp.proposalPdf || { originalName: univPdfName }, {
+                          title: acceptedProp.title || proj.title || 'University R&D Proposal Document',
+                          university: acceptedProp.universityId?.name || 'Partner University',
+                          faculty: univFaculty,
+                          description: univSolution,
+                          budget: univBudget,
+                          type: 'University R&D Solution Proposal'
+                        })}
+                        className="w-full p-3 bg-blue-50 border border-blue-200 hover:border-blue-400 rounded-xl text-xs text-blue-900 flex items-center gap-2 cursor-pointer transition-colors text-left"
+                      >
                         <span className="material-symbols-outlined text-blue-600 text-lg">picture_as_pdf</span>
                         <span className="font-semibold">University R&amp;D PDF:</span>
-                        <span className="underline font-bold">{univPdfName}</span>
-                      </div>
+                        <span className="underline font-bold truncate flex-1">{univPdfName}</span>
+                        <span className="material-symbols-outlined text-sm text-blue-600">open_in_new</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1091,11 +1156,22 @@ function IndustryDashboardPage() {
                         </div>
                       </div>
 
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openPdfDocument(proj.proposalDocument || { originalName: indPdfName }, {
+                          title: proj.title || 'CSR Partnership Proposal',
+                          university: indName,
+                          description: indScope,
+                          budget: indValue,
+                          type: 'Industry CSR Partnership Proposal'
+                        })}
+                        className="w-full p-3 bg-blue-50 border border-blue-200 hover:border-blue-400 rounded-xl text-xs text-blue-900 flex items-center gap-2 cursor-pointer transition-colors text-left"
+                      >
                         <span className="material-symbols-outlined text-blue-600 text-lg">picture_as_pdf</span>
                         <span className="font-semibold">Industry CSR PDF:</span>
-                        <span className="underline font-bold">{indPdfName}</span>
-                      </div>
+                        <span className="underline font-bold truncate flex-1">{indPdfName}</span>
+                        <span className="material-symbols-outlined text-sm text-blue-600">open_in_new</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1174,10 +1250,20 @@ function IndustryDashboardPage() {
                           />
                         </label>
                         {newUpdateForm.pdfFile && (
-                          <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm">check_circle</span>
-                            {newUpdateForm.pdfFile.name} attached
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                              <span className="material-symbols-outlined text-sm">check_circle</span>
+                              {newUpdateForm.pdfFile.name} attached
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => openPdfDocument(newUpdateForm.pdfFile)}
+                              className="px-3 py-1.5 bg-blue-50 text-[#2F36ED] border border-blue-200 hover:bg-blue-100 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <span className="material-symbols-outlined text-xs">visibility</span>
+                              Preview PDF
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1237,11 +1323,22 @@ function IndustryDashboardPage() {
                             {mediaList.length > 0 && (
                               <div className="flex flex-wrap gap-2 pt-1">
                                 {mediaList.map((m, mIdx) => (
-                                  <div key={mIdx} className="flex items-center gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 w-fit">
+                                  <button
+                                    key={mIdx}
+                                    type="button"
+                                    onClick={() => openPdfDocument(m, {
+                                      title: title || 'CSR Progress Report Document',
+                                      university: authorStr,
+                                      description: desc,
+                                      date: dateStr,
+                                      type: 'Milestone Progress Report'
+                                    })}
+                                    className="flex items-center gap-2 p-2.5 bg-blue-50 border border-blue-200 hover:border-blue-400 rounded-xl text-xs text-blue-900 w-fit cursor-pointer transition-colors text-left"
+                                  >
                                     <span className="material-symbols-outlined text-blue-600 text-base">picture_as_pdf</span>
                                     <span className="font-semibold">Attached Document:</span>
                                     <span className="underline font-bold">{m.originalName || m.url || 'Report.pdf'}</span>
-                                  </div>
+                                  </button>
                                 ))}
                               </div>
                             )}

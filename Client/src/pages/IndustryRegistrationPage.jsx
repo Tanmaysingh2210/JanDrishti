@@ -74,7 +74,7 @@ function IndustryRegistrationPage() {
         confirmPassword: formData.confirmPassword,
       };
 
-      const response = await fetch('http://localhost:3000/api/industry/auth/register', {
+      const response = await fetch('https://jandrishti-em1u.onrender.com/api/industry/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

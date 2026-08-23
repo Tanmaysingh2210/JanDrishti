@@ -33,16 +33,16 @@ function LoginPage() {
     let payload = {};
 
     if (role === 'govt') {
-      endpoint = 'http://localhost:3000/api/government/auth/login';
+      endpoint = 'https://jandrishti-em1u.onrender.com/api/government/auth/login';
       payload = { email, password };
     } else if (role === 'univ') {
-      endpoint = 'http://localhost:3000/api/university/auth/login';
+      endpoint = 'https://jandrishti-em1u.onrender.com/api/university/auth/login';
       payload = { email, password };
     } else if (role === 'industry') {
-      endpoint = 'http://localhost:3000/api/industry/auth/login';
+      endpoint = 'https://jandrishti-em1u.onrender.com/api/industry/auth/login';
       payload = { email, password };
     } else if (role === 'citizen') {
-      endpoint = 'http://localhost:3000/api/citizen/auth/login';
+      endpoint = 'https://jandrishti-em1u.onrender.com/api/citizen/auth/login';
       payload = { identifier: email, password };
     }
 

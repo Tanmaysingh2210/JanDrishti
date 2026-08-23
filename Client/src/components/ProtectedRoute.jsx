@@ -23,13 +23,13 @@ function ProtectedRoute({ children, allowedRoles }) {
       // Check session via /me endpoints depending on role
       let endpoint = '';
       if (storedRole === 'govt') {
-        endpoint = 'http://localhost:3000/api/government/auth/me';
+        endpoint = 'https://jandrishti-em1u.onrender.com/api/government/auth/me';
       } else if (storedRole === 'univ') {
-        endpoint = 'http://localhost:3000/api/university/auth/me';
+        endpoint = 'https://jandrishti-em1u.onrender.com/api/university/auth/me';
       } else if (storedRole === 'industry') {
-        endpoint = 'http://localhost:3000/api/industry/auth/me';
+        endpoint = 'https://jandrishti-em1u.onrender.com/api/industry/auth/me';
       } else if (storedRole === 'citizen') {
-        endpoint = 'http://localhost:3000/api/citizen/auth/me';
+        endpoint = 'https://jandrishti-em1u.onrender.com/api/citizen/auth/me';
       }
 
       if (!endpoint) {

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import DarkModeToggle from '../components/DarkModeToggle';
 import IssueMap from '../components/IssueMap';
+import { openPdfDocument } from '../utils/pdfViewer';
 
 function GovtDashboardPage() {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ function GovtDashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:3000/api/government/auth/logout', {
+      await fetch('https://jandrishti-em1u.onrender.com/api/government/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
@@ -79,7 +80,7 @@ function GovtDashboardPage() {
   const fetchUniversities = async () => {
     setLoadingUnivs(true);
     try {
-      const res = await fetch('http://localhost:3000/api/university', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/university', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -101,7 +102,7 @@ function GovtDashboardPage() {
   const fetchChallenges = async () => {
     setLoadingChallenges(true);
     try {
-      const res = await fetch('http://localhost:3000/api/issues', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/issues', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -123,7 +124,7 @@ function GovtDashboardPage() {
   const fetchIndustries = async () => {
     setLoadingIndustries(true);
     try {
-      const res = await fetch('http://localhost:3000/api/industry', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/industry', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -144,7 +145,7 @@ function GovtDashboardPage() {
 
   const handleApproveUniversity = async (univId, univName) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/university/${univId}/approve`, {
+      const res = await fetch(`https://jandrishti-em1u.onrender.com/api/university/${univId}/approve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -278,7 +279,7 @@ function GovtDashboardPage() {
   const fetchProjectDetailForGovt = async (issueId) => {
     if (!issueId) return;
     try {
-      const res = await fetch(`http://localhost:3000/api/projects/${issueId}`, {
+      const res = await fetch(`https://jandrishti-em1u.onrender.com/api/projects/${issueId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -295,7 +296,7 @@ function GovtDashboardPage() {
     }
 
     try {
-      const resInd = await fetch('http://localhost:3000/api/industry/proposals/all', {
+      const resInd = await fetch('https://jandrishti-em1u.onrender.com/api/industry/proposals/all', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -317,7 +318,7 @@ function GovtDashboardPage() {
     setLoadingProposals(true);
     setIssueProposals([]);
     try {
-      const res = await fetch(`http://localhost:3000/api/government/proposals/issue/${issueId}`, {
+      const res = await fetch(`https://jandrishti-em1u.onrender.com/api/government/proposals/issue/${issueId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -339,7 +340,7 @@ function GovtDashboardPage() {
   const handleAcceptProposal = async (proposalId, proposalTitle) => {
     setAcceptingProposalId(proposalId);
     try {
-      const res = await fetch(`http://localhost:3000/api/government/proposals/${proposalId}/select`, {
+      const res = await fetch(`https://jandrishti-em1u.onrender.com/api/government/proposals/${proposalId}/select`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -1254,23 +1255,30 @@ function GovtDashboardPage() {
                           )}
 
                           {/* PDF Proposal Link */}
-                          {proposal.proposalPdf?.url && (
-                            <a
-                              href={proposal.proposalPdf.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-[#2F36ED]/30 bg-[#2F36ED]/5 hover:bg-[#2F36ED]/10 transition-colors"
-                            >
-                              <span className="material-symbols-outlined text-base text-[#2F36ED]">picture_as_pdf</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-[#2F36ED] truncate">
-                                  {proposal.proposalPdf.originalName || 'R&D Proposal Document'}
-                                </p>
-                                <p className="text-[10px] text-[#58423d]">Click to view PDF</p>
-                              </div>
-                              <span className="material-symbols-outlined text-sm text-[#2F36ED]">open_in_new</span>
-                            </a>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => openPdfDocument(proposal.proposalPdf, {
+                              title: proposal.title,
+                              university: proposal.universityId?.name,
+                              faculty: proposal.facultyInformation?.[0]?.name,
+                              description: proposal.solutionDescription,
+                              budget: proposal.estimatedCost,
+                              timeline: proposal.timelineMonths,
+                              team: proposal.teamInformation,
+                              date: proposal.createdAt,
+                              type: 'University R&D Proposal'
+                            })}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-[#2F36ED]/30 bg-[#2F36ED]/5 hover:bg-[#2F36ED]/10 transition-colors text-left cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-base text-[#2F36ED]">picture_as_pdf</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-[#2F36ED] truncate">
+                                {proposal.proposalPdf?.originalName || 'R&D Proposal Document'}
+                              </p>
+                              <p className="text-[10px] text-[#58423d]">Click to view PDF</p>
+                            </div>
+                            <span className="material-symbols-outlined text-sm text-[#2F36ED]">open_in_new</span>
+                          </button>
 
                           {/* Accept / Accepted state */}
                           {proposal.status === 'submitted' && (

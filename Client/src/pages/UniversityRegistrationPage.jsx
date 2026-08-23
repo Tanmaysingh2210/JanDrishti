@@ -61,7 +61,7 @@ function UniversityRegistrationPage() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/university/auth/request-approval', {
+      const response = await fetch('https://jandrishti-em1u.onrender.com/api/university/auth/request-approval', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -95,7 +95,7 @@ function UniversityRegistrationPage() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/university/auth/check-status', {
+      const response = await fetch('https://jandrishti-em1u.onrender.com/api/university/auth/check-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -149,7 +149,7 @@ function UniversityRegistrationPage() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/university/auth/register', {
+      const response = await fetch('https://jandrishti-em1u.onrender.com/api/university/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
