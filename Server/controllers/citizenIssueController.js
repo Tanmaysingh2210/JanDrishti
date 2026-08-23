@@ -7,35 +7,20 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Map model output labels -> DB category enum
-const LABEL_MAP = {
-  "electric / solar energy": "electricity",
-  "energy": "electricity",
-  "electricity": "electricity",
-  "road infrastructure": "roads_traffic",
-  "roads": "roads_traffic",
-  "roads_traffic": "roads_traffic",
-  "traffic": "roads_traffic",
-  "urban development": "roads_traffic",
-  "waste management": "sanitation",
-  "sanitation": "sanitation",
-  "water": "water_management",
-  "water management": "water_management",
-  "water_management": "water_management",
-  "water related": "water_management",
-  "digital infrastructure": "infrastructure",
-  "infrastructure": "infrastructure",
-  "accessibility": "infrastructure",
-  "education": "education",
-  "health": "health",
-  "healthcare": "health",
-  "environment": "environment",
-  "public administration": "social",
-  "rural livelihood": "social",
-  "social": "social",
-  "agriculture": "environment",
-  "other": "other",
-};
+// Allowed ML Model & DB categories
+const ALLOWED_CATEGORIES = [
+  "accessibility",
+  "agriculture",
+  "education",
+  "energy",
+  "environment",
+  "healthcare",
+  "public administration",
+  "rural livelihood",
+  "urban development",
+  "water related",
+  "other",
+];
 
 // ==========================================
 // UPLOAD EVIDENCE TO CLOUDINARY
@@ -201,28 +186,8 @@ export const classifyIssue = async (req, res) => {
       }
     }
 
-    let dbCategory = "other";
     const cleanRaw = (rawLabel || "").trim().toLowerCase();
-    if (LABEL_MAP[cleanRaw]) {
-      dbCategory = LABEL_MAP[cleanRaw];
-    } else {
-      const MODEL_CATEGORIES = [
-        "accessibility",
-        "agriculture",
-        "education",
-        "energy",
-        "environment",
-        "healthcare",
-        "public administration",
-        "rural livelihood",
-        "urban development",
-        "water related",
-        "other",
-      ];
-      if (MODEL_CATEGORIES.includes(cleanRaw)) {
-        dbCategory = cleanRaw;
-      }
-    }
+    const dbCategory = ALLOWED_CATEGORIES.includes(cleanRaw) ? cleanRaw : "other";
 
     return res.status(200).json({
       success: true,
@@ -264,27 +229,12 @@ export const submitIssue = async (req, res) => {
     let rawCategory = ml?.category ? ml.category.trim().toLowerCase() : null;
     let finalCategory = userCategory || "other";
 
-    if (rawCategory) {
-      if (LABEL_MAP[rawCategory]) {
-        finalCategory = LABEL_MAP[rawCategory];
-      } else {
-        const MODEL_CATEGORIES = [
-          "accessibility",
-          "agriculture",
-          "education",
-          "energy",
-          "environment",
-          "healthcare",
-          "public administration",
-          "rural livelihood",
-          "urban development",
-          "water related",
-          "other",
-        ];
-        if (MODEL_CATEGORIES.includes(rawCategory)) {
-          finalCategory = rawCategory;
-        }
-      }
+    if (rawCategory && ALLOWED_CATEGORIES.includes(rawCategory)) {
+      finalCategory = rawCategory;
+    } else if (userCategory && ALLOWED_CATEGORIES.includes(userCategory)) {
+      finalCategory = userCategory;
+    } else {
+      finalCategory = "other";
     }
 
     const duplicateOf = ml?.original_complaint_index ?? null;
