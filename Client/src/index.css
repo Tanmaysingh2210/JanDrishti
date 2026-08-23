@@ -15,49 +15,74 @@ html, body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-html.dark, html.dark body {
-  background-color: #0F172A !important;
+/* =====================================================
+   DARK MODE COMPREHENSIVE STYLING FOR ALL DASHBOARDS
+   ===================================================== */
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark, 
+html.dark body, 
+html.dark main,
+html.dark [class*="F1F3F5"],
+html.dark [class*="f8f9fb"],
+html.dark [class*="F8FAFC"],
+html.dark .bg-slate-bg,
+html.dark .bg-surface-bright {
+  background-color: #0B0F19 !important;
   color: #F1F5F9 !important;
 }
 
-/* Global Dark Mode Overrides for Hardcoded Light Hex Classes */
+/* Cards, Sidebars, Modals & Headers in Dark Mode */
 html.dark .bg-white,
-html.dark [class*="bg-white"] {
-  background-color: #1E293B !important;
-  color: #F8FAFC;
+html.dark .bg-surface,
+html.dark .bg-surface-container-lowest,
+html.dark .bg-surface-container-low,
+html.dark .bg-surface-container-highest {
+  background-color: #151D2A !important;
+  color: #F8FAFC !important;
 }
 
-html.dark .bg-\[\#f8f9fb\],
-html.dark .bg-\[\#F8FAFC\] {
-  background-color: #0F172A !important;
+/* Borders in Dark Mode */
+html.dark [class*="DFE3E8"],
+html.dark [class*="e0e3e5"],
+html.dark .border-outline-variant,
+html.dark .border-surface-variant {
+  border-color: #27354A !important;
 }
 
-html.dark .border-\[\#e0e3e5\],
-html.dark .border-outline-variant {
-  border-color: #334155 !important;
-}
-
-html.dark .text-\[\#191c1e\],
+/* Primary Text in Dark Mode */
+html.dark [class*="0F172A"],
+html.dark [class*="191c1e"],
+html.dark .text-sovereign-navy,
 html.dark .text-on-surface {
   color: #F8FAFC !important;
 }
 
-html.dark .text-\[\#58423d\] {
+/* Secondary & Muted Text in Dark Mode */
+html.dark [class*="454556"],
+html.dark [class*="58423d"],
+html.dark [class*="767588"],
+html.dark .text-on-surface-variant {
   color: #94A3B8 !important;
 }
 
+/* Headers & Navigation */
 html.dark header,
 html.dark nav {
-  background-color: #1E293B !important;
-  border-color: #334155 !important;
+  background-color: #151D2A !important;
+  border-color: #27354A !important;
 }
 
+/* Inputs, Selects & Textareas */
 html.dark input,
 html.dark select,
 html.dark textarea {
-  background-color: #0F172A !important;
+  background-color: #0B0F19 !important;
   color: #F8FAFC !important;
-  border-color: #334155 !important;
+  border-color: #27354A !important;
 }
 
 html.dark input::placeholder,

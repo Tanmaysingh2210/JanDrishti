@@ -7,11 +7,12 @@ function CitizenHomePage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const profileDropdownRef = useRef(null);
 
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
   const [showReportModal, setShowReportModal] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [filterCategory, setFilterCategory] = useState('all');
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,6 +58,15 @@ function CitizenHomePage() {
     setShowReportModal(false);
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     // Check logged in user session
@@ -97,35 +107,20 @@ function CitizenHomePage() {
     }
   };
 
-  const mockIssues = [
-    {
-      id: 'ISS-101',
-      title: 'Deep Potholes on Main Road',
-      category: 'Roads & Infrastructure',
-      status: 'In Progress',
-      date: '22 Aug 2026',
-      location: 'Namkum, Ranchi',
-      upvotes: 42,
-    },
-    {
-      id: 'ISS-102',
-      title: 'Streetlights Not Working in Sector 4',
-      category: 'Electrical & Lighting',
-      status: 'Under Review',
-      date: '20 Aug 2026',
-      location: 'Doranda, Ranchi',
-      upvotes: 19,
-    },
-    {
-      id: 'ISS-103',
-      title: 'Water Pipe Leakage near Community Center',
-      category: 'Water & Sanitation',
-      status: 'Resolved',
-      date: '18 Aug 2026',
-      location: 'Kanke Road, Ranchi',
-      upvotes: 65,
-    },
-  ];
+  const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:3000/api/citizen/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (err) {
+      console.error('Logout API error:', err);
+    }
+    localStorage.clear();
+    sessionStorage.clear();
+    setUser(null);
+    navigate('/login');
+  };
 
   // Upload photo directly to Cloudinary via hook
   const handlePhotoFile = (file) => {
@@ -149,7 +144,6 @@ function CitizenHomePage() {
       const data = await res.json();
       if (data.success && data.category) {
         setAiCategory({ rawLabel: data.rawLabel, category: data.category });
-        // Live update detected category unless citizen explicitly clicked a manual category button
         if (!userOverridden) {
           setManualCategory(data.category);
         }
@@ -230,7 +224,7 @@ function CitizenHomePage() {
           </Link>
         </div>
 
-        {/* Nav Links */}
+        {/* Nav Links (Without bottom profile button as requested) */}
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           <button
             onClick={() => setActiveTab('home')}
@@ -255,36 +249,7 @@ function CitizenHomePage() {
             <span className="material-symbols-outlined text-xl text-[#f36f56]">add_circle</span>
             <span>Report an Issue</span>
           </button>
-
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-xs text-[#58423d] hover:bg-[#f2f4f6] transition-colors cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-xl">notifications</span>
-            <span>Notifications</span>
-          </button>
-
-          <Link
-            to="/login"
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-xs text-[#58423d] hover:bg-[#f2f4f6] transition-colors"
-          >
-            <span className="material-symbols-outlined text-xl">person</span>
-            <span>Profile & Account</span>
-          </Link>
         </nav>
-
-        {/* User Profile Bottom */}
-        <div className="p-4 border-t border-[#e0e3e5]">
-          <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
-            <div className="w-10 h-10 rounded-full bg-[#f36f56]/10 text-[#f36f56] flex items-center justify-center font-bold text-sm">
-              {user?.fullName ? user.fullName[0] : 'A'}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-bold text-[#191c1e] truncate">{user?.fullName || 'Aarav Sharma'}</p>
-              <p className="text-[11px] text-[#58423d] truncate">Citizen Account</p>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* MAIN CONTENT WRAPPER */}
@@ -306,21 +271,57 @@ function CitizenHomePage() {
             </h1>
           </div>
 
-          {/* Right Top Actions */}
-          <div className="flex items-center gap-4">
+          {/* Top Right Profile Dropdown */}
+          <div className="flex items-center gap-3">
             <DarkModeToggle />
-            <button className="text-[#58423d] hover:text-[#f36f56] transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer">
-              <span className="material-symbols-outlined text-lg">language</span>
-              <span className="hidden sm:inline">English</span>
-            </button>
+            <div className="relative" ref={profileDropdownRef}>
+              <button
+                onClick={() => setShowProfileMenu((prev) => !prev)}
+                className="flex items-center gap-2.5 hover:bg-[#f8f9fb] p-1.5 rounded-xl border border-[#e0e3e5] cursor-pointer transition-all shadow-xs"
+              >
+                <div className="w-8.5 h-8.5 rounded-full bg-[#f36f56]/10 text-[#f36f56] flex items-center justify-center font-bold text-xs border border-[#f36f56]/20 shadow-2xs">
+                  {user?.fullName ? user.fullName[0].toUpperCase() : 'A'}
+                </div>
+                <div className="hidden sm:flex flex-col items-start text-left">
+                  <span className="text-xs text-[#191c1e] font-bold">
+                    {user?.fullName || 'Aarav Sharma'}
+                  </span>
+                  <span className="text-[10px] text-[#58423d] font-semibold">
+                    Citizen Account
+                  </span>
+                </div>
+                <span className="material-symbols-outlined text-[#58423d] text-base pr-1">
+                  {showProfileMenu ? 'expand_less' : 'expand_more'}
+                </span>
+              </button>
 
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="text-[#58423d] hover:text-[#f36f56] transition-colors relative cursor-pointer"
-            >
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-0 right-0 w-2 h-2 bg-[#f36f56] rounded-full border border-white"></span>
-            </button>
+              {/* Profile Dropdown Menu */}
+              {showProfileMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-[#e0e3e5] rounded-2xl shadow-xl z-50 py-2 divide-y divide-[#e0e3e5] animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-4 py-3 bg-[#f8f9fb] rounded-t-2xl">
+                    <p className="text-xs font-extrabold text-[#191c1e]">
+                      {user?.fullName || 'Aarav Sharma'}
+                    </p>
+                    <p className="text-[11px] text-[#58423d]">
+                      {user?.email || 'citizen@jandrishti.gov.in'}
+                    </p>
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded bg-[#f36f56]/10 text-[#f36f56] text-[10px] font-bold">
+                      Verified Citizen
+                    </span>
+                  </div>
+
+                  <div className="py-1">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base text-red-600">logout</span>
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -794,15 +795,15 @@ function CitizenHomePage() {
                           </div>
                           <h4 className="text-xl font-bold text-[#3f0400] mb-1">See a problem?</h4>
                           <p className="text-xs text-[#58423d] leading-relaxed">
-                            Quickly log location-based issues to help local authorities and university teams act faster.
+                            Quickly log location-based issues to initiate local government triage and university R&amp;D solutions.
                           </p>
                         </div>
                         <button
                           onClick={() => setShowReportModal(true)}
-                          className="w-full h-[52px] bg-[#f36f56] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-[#a83824] transition-colors shadow-sm cursor-pointer"
+                          className="w-full h-[48px] bg-[#f36f56] text-white font-bold text-xs rounded-xl hover:bg-[#a83824] transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
                         >
-                          Report an Issue
-                          <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                          <span className="material-symbols-outlined text-base">add_a_photo</span>
+                          Report Issue Now
                         </button>
                       </div>
                     </div>
@@ -810,11 +811,10 @@ function CitizenHomePage() {
                 </div>
               </>
             )}
-
           </div>
         </main>
 
-        {/* MOBILE BOTTOM NAVIGATION BAR */}
+        {/* MOBILE BOTTOM NAV */}
         <nav className="md:hidden bg-white border-t border-[#e0e3e5] h-[72px] flex justify-around items-center px-2 shrink-0 z-20">
           <button onClick={() => setActiveTab('home')} className="flex flex-col items-center justify-center w-16 h-full text-[#f36f56]">
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
@@ -834,16 +834,6 @@ function CitizenHomePage() {
               <span className="material-symbols-outlined text-3xl">add</span>
             </button>
           </div>
-
-          <button onClick={() => setShowNotifications(!showNotifications)} className="flex flex-col items-center justify-center w-16 h-full text-[#58423d]">
-            <span className="material-symbols-outlined">notifications</span>
-            <span className="text-[10px] mt-0.5">Alerts</span>
-          </button>
-
-          <Link to="/login" className="flex flex-col items-center justify-center w-16 h-full text-[#58423d]">
-            <span className="material-symbols-outlined">person</span>
-            <span className="text-[10px] mt-0.5">Profile</span>
-          </Link>
         </nav>
       </div>
 

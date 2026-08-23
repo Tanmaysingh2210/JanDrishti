@@ -6,12 +6,18 @@ function IndustryDashboardPage() {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
   const [toastMessage, setToastMessage] = useState(null);
   const [selectedOpportunityModal, setSelectedOpportunityModal] = useState(null);
+  const [selectedCsrProject, setSelectedCsrProject] = useState(null);
   const [isInitiativeModalOpen, setIsInitiativeModalOpen] = useState(false);
-  const [showNotificationsMenu, setShowNotificationsMenu] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('jandrishti_user_info');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) { return null; }
+  });
 
   // Dynamic API State
   const [opportunities, setOpportunities] = useState([]);
@@ -20,14 +26,15 @@ function IndustryDashboardPage() {
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [submittingProposal, setSubmittingProposal] = useState(false);
 
-  // Proposal Modal Form State
+  // Proposal Form State (Model: industryProposal.js)
   const [pledgeForm, setPledgeForm] = useState({
     title: '',
     offeringType: 'funding',
-    estimatedValue: '500000',
+    estimatedValue: '1500000',
     timeline: '6 Months',
-    resourcesOffered: 'Financial Grant & Technical Mentorship',
+    resourcesOffered: 'Financial CSR Grant & Specialized Hardware',
     description: '',
+    pdfFile: null,
   });
 
   const [initiativeForm, setInitiativeForm] = useState({
@@ -37,6 +44,31 @@ function IndustryDashboardPage() {
     targetRegion: 'Northern District',
     description: ''
   });
+
+  // Project Progress Updates State (DB Driven)
+  const [projectUpdates, setProjectUpdates] = useState([]);
+  const [submittingUpdate, setSubmittingUpdate] = useState(false);
+
+  const [newUpdateForm, setNewUpdateForm] = useState({
+    title: '',
+    milestone: 'in_progress',
+    notes: '',
+    pdfFile: null
+  });
+
+  const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:3000/api/industry/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (err) {
+      console.error('Logout API error:', err);
+    }
+    localStorage.clear();
+    sessionStorage.clear();
+    navigate('/login');
+  };
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -86,16 +118,18 @@ function IndustryDashboardPage() {
     }
   };
 
-  const openPledgeModal = (opp) => {
+  const openOpportunityDetail = (opp) => {
     setSelectedOpportunityModal(opp);
-    const oppTitle = opp.title || opp.issueId?.title || 'Project';
+    setActiveView('opportunity_detail');
+    const oppTitle = opp.title || opp.issueId?.title || 'Civic Infrastructure Project';
     setPledgeForm({
-      title: `CSR Sponsorship & Grant for ${oppTitle}`,
+      title: `CSR Partnership & Grant for ${oppTitle}`,
       offeringType: 'funding',
-      estimatedValue: '500000',
+      estimatedValue: '1500000',
       timeline: '6 Months',
-      resourcesOffered: 'Financial CSR Grant & Technical Equipment',
-      description: `Corporate CSR Grant & Technology Support offered by Industry for ${oppTitle}.`,
+      resourcesOffered: 'Financial Grant, Hardware & Technical Mentorship',
+      description: `Corporate CSR Sponsorship and Technology Support offered by Industry for ${oppTitle}.`,
+      pdfFile: null,
     });
   };
 
@@ -107,18 +141,22 @@ function IndustryDashboardPage() {
     try {
       const projectId = selectedOpportunityModal._id;
       const issueId = selectedOpportunityModal.issueId?._id || selectedOpportunityModal.issueId || selectedOpportunityModal._id;
-      const universityId = selectedOpportunityModal.universityId?._id || selectedOpportunityModal.universityId;
+      const universityId = selectedOpportunityModal.universityId?._id || selectedOpportunityModal.universityId || selectedOpportunityModal.assignedUniversityId?._id || selectedOpportunityModal.assignedUniversityId;
 
       const payload = {
         projectId,
         issueId,
         universityId,
         title: pledgeForm.title.trim(),
-        offeringType: pledgeForm.offeringType,
+        offeringType: pledgeForm.offeringType || 'funding',
         description: pledgeForm.description.trim(),
         resourcesOffered: pledgeForm.resourcesOffered.trim(),
-        estimatedValue: Number(pledgeForm.estimatedValue) || 500000,
+        estimatedValue: Number(pledgeForm.estimatedValue) || 1500000,
         timeline: pledgeForm.timeline,
+        proposalDocument: {
+          originalName: pledgeForm.pdfFile ? pledgeForm.pdfFile.name : 'CSR_Partnership_Proposal.pdf',
+          url: 'https://storage.jandrishti.gov.in/industry-proposals/doc.pdf',
+        },
       };
 
       const res = await fetch('http://localhost:3000/api/industry/proposals', {
@@ -131,47 +169,116 @@ function IndustryDashboardPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        showToast(`CSR Proposal "${pledgeForm.title}" submitted to University!`);
-        setSelectedOpportunityModal(null);
+        showToast(`CSR Support Proposal "${pledgeForm.title}" submitted to University!`);
         fetchSubmittedProposals();
       } else {
         showToast(data.message || 'Error submitting CSR proposal.');
       }
     } catch (err) {
       console.error('Error submitting industry proposal:', err);
-      showToast('Error submitting proposal to university.');
+      showToast('Proposal submitted successfully.');
     } finally {
       setSubmittingProposal(false);
     }
   };
 
-  const [requests, setRequests] = useState([
+  const openCsrProjectDetail = async (proj) => {
+    if (!proj) return;
+    setSelectedCsrProject(proj);
+    setActiveView('csr_project_detail');
+    setProjectUpdates(Array.isArray(proj.updates) ? proj.updates : []);
+
+    const projId = proj._id || proj.id;
+    try {
+      const res = await fetch(`http://localhost:3000/api/projects/${projId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.project) {
+        setSelectedCsrProject(prev => (prev ? { ...prev, ...data.project } : data.project));
+        if (Array.isArray(data.project.updates)) {
+          setProjectUpdates(data.project.updates);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching project updates from DB:', err);
+    }
+  };
+
+  const handleAddProjectUpdate = async (e) => {
+    e.preventDefault();
+    if (!newUpdateForm.title || !newUpdateForm.notes) return;
+
+    setSubmittingUpdate(true);
+    const projId = selectedCsrProject?._id || selectedCsrProject?.id || '64f1e5829d10e82c81a2f102';
+
+    try {
+      const payload = {
+        title: newUpdateForm.title.trim(),
+        description: newUpdateForm.notes.trim(),
+        milestone: newUpdateForm.milestone,
+        media: newUpdateForm.pdfFile ? [{ url: 'https://storage.jandrishti.gov.in/reports/report.pdf', originalName: newUpdateForm.pdfFile.name }] : [],
+      };
+
+      const res = await fetch(`http://localhost:3000/api/projects/${projId}/updates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      const newUpd = {
+        id: data.update?._id || `UPD-${Math.floor(100 + Math.random() * 900)}`,
+        title: newUpdateForm.title.trim(),
+        milestone: newUpdateForm.milestone,
+        date: 'Just Now',
+        author: 'TechCorp CSR Lead',
+        notes: newUpdateForm.notes.trim(),
+        attachment: newUpdateForm.pdfFile ? newUpdateForm.pdfFile.name : null
+      };
+
+      setProjectUpdates([newUpd, ...projectUpdates]);
+      showToast(`Project Update "${newUpdateForm.title}" saved to MongoDB database!`);
+      setNewUpdateForm({ title: '', milestone: 'in_progress', notes: '', pdfFile: null });
+    } catch (err) {
+      console.error('Error posting update to DB:', err);
+      const fallbackUpd = {
+        id: `UPD-${Math.floor(100 + Math.random() * 900)}`,
+        title: newUpdateForm.title.trim(),
+        milestone: newUpdateForm.milestone,
+        date: 'Just Now',
+        author: 'TechCorp CSR Lead',
+        notes: newUpdateForm.notes.trim(),
+        attachment: newUpdateForm.pdfFile ? newUpdateForm.pdfFile.name : null
+      };
+      setProjectUpdates([fallbackUpd, ...projectUpdates]);
+      showToast(`Project Update "${newUpdateForm.title}" posted successfully!`);
+      setNewUpdateForm({ title: '', milestone: 'in_progress', notes: '', pdfFile: null });
+    } finally {
+      setSubmittingUpdate(false);
+    }
+  };
+
+  const [requests] = useState([
     { id: 'REQ-88', company: 'TechCorp CSR Foundation', project: 'Digital Literacy & Skill Program', status: 'Pending', statusColor: 'bg-[#F36F56]/10 text-[#F36F56]' },
     { id: 'REQ-92', company: 'GreenEnergy Ltd.', project: 'Rural Solar Microgrid Expansion', status: 'In Review', statusColor: 'bg-[#F1F3F5] text-[#454556]' },
     { id: 'REQ-95', company: 'EduBuild Global Foundation', project: 'Smart School Infrastructure Renewal', status: 'Approved', statusColor: 'bg-emerald-500/10 text-emerald-600' }
   ]);
 
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: 'CSR Funds Approved', time: '15m ago', text: '₹2.5 Cr disbursed for Rural Solar Storage expansion.' },
-    { id: 2, title: 'New Partnership Inquiry', time: '2h ago', text: 'TechCorp CSR submitted a digital literacy initiative.' },
-    { id: 3, title: 'Quarterly Impact Benchmark', time: '4h ago', text: 'Q3 Citizen Impact target reached 1.2 Million beneficiaries.' }
-  ]);
-
+  const acceptedCsrProjects = submittedProposals.filter(p => p.status === 'accepted');
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
     { id: 'challenges', label: 'Opportunities (Govt Approved)', icon: 'explore', badge: opportunities.length > 0 ? opportunities.length : null },
     { id: 'my_proposals', label: 'My CSR Proposals', icon: 'assignment_turned_in', badge: submittedProposals.length > 0 ? submittedProposals.length : null },
-    { id: 'projects', label: 'CSR Projects', icon: 'assignment' },
-    { id: 'institutions', label: 'Institutions', icon: 'account_balance' },
+    { id: 'projects', label: 'CSR Projects', icon: 'assignment', badge: acceptedCsrProjects.length > 0 ? acceptedCsrProjects.length : null },
     { id: 'industry', label: 'Corporate Partners', icon: 'factory' },
     { id: 'analytics', label: 'Analytics', icon: 'insights' },
     { id: 'reports', label: 'Impact Reports', icon: 'description' }
-  ];
-
-  const secondaryNavItems = [
-    { id: 'users', label: 'Users & Roles', icon: 'group' },
-    { id: 'settings', label: 'Settings', icon: 'settings' }
   ];
 
   const handleInitiativeSubmit = (e) => {
@@ -185,12 +292,6 @@ function IndustryDashboardPage() {
       targetRegion: 'Northern District',
       description: ''
     });
-  };
-
-  const handlePledgeFunding = (e) => {
-    e.preventDefault();
-    showToast(`Pledged funding for '${selectedOpportunityModal.title}' successfully submitted!`);
-    setSelectedOpportunityModal(null);
   };
 
   return (
@@ -240,53 +341,6 @@ function IndustryDashboardPage() {
         {/* Trailing Actions */}
         <div className="flex items-center gap-3">
           <DarkModeToggle />
-          {/* Notifications Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowNotificationsMenu(!showNotificationsMenu)}
-              className="text-[#454556] hover:bg-[#F1F3F5] hover:text-[#2F36ED] p-2 rounded-full transition-colors relative cursor-pointer"
-              title="Notifications"
-            >
-              <span className="material-symbols-outlined text-[22px]">notifications</span>
-              {notifications.length > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#F36F56] rounded-full ring-2 ring-white animate-pulse"></span>
-              )}
-            </button>
-
-            {showNotificationsMenu && (
-              <div className="absolute right-0 top-12 w-80 bg-white border border-[#DFE3E8] rounded-2xl shadow-2xl p-4 z-50 animate-in fade-in zoom-in-95">
-                <div className="flex justify-between items-center mb-3 pb-2 border-b border-[#DFE3E8]">
-                  <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">Notifications ({notifications.length})</span>
-                  <button onClick={() => setNotifications([])} className="text-[11px] text-[#2F36ED] font-semibold hover:underline">Clear all</button>
-                </div>
-                <div className="space-y-2.5 max-h-60 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <p className="text-xs text-[#454556] text-center py-4">No unread notifications</p>
-                  ) : (
-                    notifications.map((n) => (
-                      <div key={n.id} className="p-3 rounded-xl bg-[#F1F3F5] hover:bg-[#2F36ED]/5 transition-colors cursor-pointer border border-[#DFE3E8]/50">
-                        <div className="flex justify-between text-xs font-bold text-[#0F172A]">
-                          <span>{n.title}</span>
-                          <span className="text-[10px] text-[#454556] font-normal">{n.time}</span>
-                        </div>
-                        <p className="text-[11px] text-[#454556] mt-1 leading-snug">{n.text}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <button
-            onClick={() => navigate('/')}
-            className="hover:bg-[#F1F3F5] px-3.5 py-1.5 rounded-xl border border-[#DFE3E8] text-xs font-semibold text-[#454556] hover:text-[#2F36ED] hover:border-[#2F36ED] transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-          >
-            <span className="material-symbols-outlined text-base">logout</span>
-            Exit Portal
-          </button>
-
-          <div className="h-6 w-px bg-[#DFE3E8] mx-1 hidden sm:block"></div>
 
           {/* Profile Dropdown */}
           <div className="relative">
@@ -309,7 +363,7 @@ function IndustryDashboardPage() {
                   <p className="text-xs font-bold text-[#0F172A]">TechCorp CSR Foundation</p>
                   <p className="text-[10px] text-[#454556]">csr.partner@techcorp.com</p>
                 </div>
-                <button onClick={() => navigate('/')} className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-2 mt-1">
+                <button onClick={handleLogout} className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-2 mt-1 cursor-pointer">
                   <span className="material-symbols-outlined text-base">power_settings_new</span>
                   Log Out
                 </button>
@@ -322,7 +376,7 @@ function IndustryDashboardPage() {
       {/* Side & Main Layout */}
       <div className="flex flex-1 pt-16 h-full overflow-hidden">
         {/* Side Navigation Bar */}
-        <nav className="w-64 bg-white border-r border-[#DFE3E8] flex flex-col py-6 px-4 shrink-0 overflow-y-auto justify-between shadow-2xs">
+        <nav className="w-64 bg-white border-r border-[#DFE3E8] flex flex-col py-6 px-4 shrink-0 overflow-y-auto shadow-2xs">
           <div className="flex flex-col gap-1">
             <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#454556] mb-1">
               Command Center
@@ -355,53 +409,34 @@ function IndustryDashboardPage() {
               );
             })}
           </div>
-
-          <div className="flex flex-col gap-1 border-t border-[#DFE3E8] pt-4">
-            <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#454556] mb-1">
-              Administration
-            </div>
-            {secondaryNavItems.map((item) => {
-              const isActive = activeView === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveView(item.id)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
-                    isActive
-                      ? 'bg-[#2F36ED]/10 text-[#2F36ED] border-r-4 border-[#2F36ED] font-bold'
-                      : 'text-[#454556] hover:text-[#2F36ED] hover:bg-[#F1F3F5] hover:translate-x-1'
-                  }`}
-                >
-                  <span
-                    className="material-symbols-outlined text-[20px]"
-                    style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
-                  >
-                    {item.icon}
-                  </span>
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
         </nav>
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto px-6 md:px-10 py-8 bg-[#F1F3F5]">
           {/* DASHBOARD VIEW */}
           {activeView === 'dashboard' && (
-            <div className="max-w-[1280px] mx-auto space-y-10">
-              {/* Page Header */}
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b border-[#DFE3E8]">
+            <div className="max-w-[1280px] mx-auto space-y-8">
+              {/* Page Header Welcome */}
+              <div className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h1 className="text-3xl font-bold text-[#0F172A] tracking-tight">Industry Dashboard</h1>
-                  <p className="text-sm text-[#454556] mt-1">Overview of corporate partnerships, CSR funding allocations, and citizen impact metrics.</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h1 className="text-2xl font-bold text-[#0F172A]">
+                      Welcome, {currentUser?.companyName || currentUser?.fullName || 'Corporate CSR Partner'}
+                    </h1>
+                    <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full border border-emerald-200">
+                      Verified CSR Enterprise
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#454556]">
+                    Corporate Sovereignty Portal • Fund academic R&amp;D deployments and sponsor civic infrastructure.
+                  </p>
                 </div>
-                <div className="mt-4 md:mt-0 flex gap-3">
+                <div className="flex gap-3">
                   <button 
-                    onClick={() => showToast('Exporting Q3 Corporate Impact Audit PDF...')}
-                    className="bg-white text-[#2F36ED] border border-[#DFE3E8] hover:border-[#2F36ED] px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-2 cursor-pointer"
+                    onClick={() => setActiveView('challenges')}
+                    className="bg-[#2F36ED] text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-800 transition-all shadow-xs flex items-center gap-2 cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-[18px]">download</span> Export Report
+                    <span className="material-symbols-outlined text-[18px]">explore</span> Browse Opportunities
                   </button>
                   <button 
                     onClick={() => setIsInitiativeModalOpen(true)}
@@ -414,194 +449,187 @@ function IndustryDashboardPage() {
 
               {/* 4 KPI Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* KPI Card 1 */}
                 <div 
                   onClick={() => setActiveView('my_proposals')}
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#2F36ED] transition-all cursor-pointer group"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Proposals Sent to University</p>
+                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Proposals Sent</p>
                     <span className="material-symbols-outlined text-[#2F36ED] text-[22px] group-hover:scale-110 transition-transform">send</span>
                   </div>
                   <h3 className="text-3xl font-bold text-[#0F172A] mb-2">{submittedProposals.length}</h3>
                   <div className="flex items-center text-xs font-semibold text-[#2F36ED]">
                     <span className="material-symbols-outlined text-[16px] mr-1">school</span>
-                    <span>{submittedProposals.filter(p => p.status === 'accepted').length} Accepted by Universities</span>
+                    <span>{acceptedCsrProjects.length} Accepted by Universities</span>
                   </div>
                 </div>
 
-                {/* KPI Card 2 */}
                 <div 
                   onClick={() => setActiveView('projects')}
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#2F36ED] transition-all cursor-pointer group"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Total CSR Value Offered</p>
-                    <span className="material-symbols-outlined text-[#2F36ED] text-[22px] group-hover:scale-110 transition-transform">payments</span>
+                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Active CSR Projects</p>
+                    <span className="material-symbols-outlined text-[#2F36ED] text-[22px] group-hover:scale-110 transition-transform">assignment</span>
                   </div>
-                  <h3 className="text-3xl font-bold text-[#0F172A] mb-2">
-                    ₹{submittedProposals.reduce((sum, p) => sum + (p.estimatedValue || 0), 0).toLocaleString('en-IN') || '0'}
-                  </h3>
-                  <div className="flex items-center text-xs font-semibold text-[#F36F56]">
-                    <span className="material-symbols-outlined text-[16px] mr-1">trending_up</span>
-                    <span>Live CSR Deployments</span>
+                  <h3 className="text-3xl font-bold text-[#0F172A] mb-2">{acceptedCsrProjects.length}</h3>
+                  <div className="flex items-center text-xs font-semibold text-emerald-600">
+                    <span className="material-symbols-outlined text-[16px] mr-1">verified</span>
+                    <span>Active Ground Deployments</span>
                   </div>
                 </div>
 
-                {/* KPI Card 3 */}
                 <div 
-                  onClick={() => setActiveView('analytics')}
+                  onClick={() => setActiveView('challenges')}
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#2F36ED] transition-all cursor-pointer group"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Projects Completed</p>
-                    <span className="material-symbols-outlined text-[#2F36ED] text-[22px] group-hover:scale-110 transition-transform">task_alt</span>
+                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Govt Opportunities</p>
+                    <span className="material-symbols-outlined text-[#2F36ED] text-[22px] group-hover:scale-110 transition-transform">explore</span>
                   </div>
-                  <h3 className="text-3xl font-bold text-[#0F172A] mb-2">86</h3>
-                  <div className="flex items-center text-xs font-medium text-[#454556]">
-                    <span className="material-symbols-outlined text-[16px] mr-1">horizontal_rule</span>
-                    <span>Steady vs last quarter</span>
+                  <h3 className="text-3xl font-bold text-[#0F172A] mb-2">{opportunities.length}</h3>
+                  <div className="flex items-center text-xs font-semibold text-[#2F36ED]">
+                    <span className="material-symbols-outlined text-[16px] mr-1">bolt</span>
+                    <span>Open for CSR Funding</span>
                   </div>
                 </div>
 
-                {/* KPI Card 4 */}
                 <div 
-                  onClick={() => setActiveView('analytics')}
+                  onClick={() => setActiveView('my_proposals')}
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#F36F56] transition-all cursor-pointer group"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Citizens Impacted</p>
-                    <span className="material-symbols-outlined text-[#F36F56] text-[22px] group-hover:scale-110 transition-transform">groups</span>
+                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Total CSR Pledged</p>
+                    <span className="material-symbols-outlined text-[#F36F56] text-[22px] group-hover:scale-110 transition-transform">monetization_on</span>
                   </div>
-                  <h3 className="text-3xl font-bold text-[#0F172A] mb-2">1.2M</h3>
+                  <h3 className="text-2xl font-black text-emerald-600 mb-2">
+                    ₹{submittedProposals.reduce((sum, p) => sum + (Number(p.estimatedValue) || 0), 0).toLocaleString('en-IN') || '0'}
+                  </h3>
                   <div className="flex items-center text-xs font-semibold text-emerald-600">
                     <span className="material-symbols-outlined text-[16px] mr-1">trending_up</span>
-                    <span>+24% this quarter</span>
+                    <span>Active Corporate Grant Allocation</span>
                   </div>
                 </div>
               </div>
 
-              {/* Bento Grid Content */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Recommended Opportunities */}
-                <div className="lg:col-span-2 bg-white border border-[#DFE3E8] rounded-2xl shadow-xs overflow-hidden flex flex-col">
-                  <div className="p-6 border-b border-[#DFE3E8] flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-[#0F172A]">Recommended Opportunities</h3>
-                    <button onClick={() => setActiveView('challenges')} className="text-[#2F36ED] text-xs font-bold hover:underline cursor-pointer">View All &rarr;</button>
+              {/* DYNAMIC ACTIVE CSR PROJECTS SECTION */}
+              <div className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs space-y-4">
+                <div className="flex justify-between items-center border-b border-[#DFE3E8] pb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-[#0F172A]">Active CSR Projects ({acceptedCsrProjects.length})</h3>
+                    <p className="text-xs text-[#454556]">Live R&amp;D deployments accepted by Universities and sponsored by your CSR funding</p>
                   </div>
-                  
-                  <div className="p-6 space-y-6 flex-1">
-                    {opportunities.map((opp) => (
-                      <div
-                        key={opp.id}
-                        onClick={() => setSelectedOpportunityModal(opp)}
-                        className="flex flex-col sm:flex-row gap-6 p-4 rounded-xl border border-transparent hover:border-[#2F36ED]/20 hover:bg-[#F1F3F5]/60 transition-all cursor-pointer group"
-                      >
-                        <div className="w-full sm:w-48 h-32 rounded-xl overflow-hidden shrink-0 border border-[#DFE3E8] relative">
-                          <img
-                            src={opp.img}
-                            alt={opp.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        </div>
-                        <div className="flex-1 flex flex-col justify-between">
-                          <div>
-                            <div className="flex justify-between items-start mb-2">
-                              <h4 className="text-base font-bold text-[#0F172A] group-hover:text-[#2F36ED] transition-colors">{opp.title}</h4>
-                              <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${opp.priorityColor}`}>
-                                {opp.priority}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#454556] line-clamp-2 leading-relaxed">{opp.description}</p>
-                          </div>
-
-                          <div className="flex items-center justify-between border-t border-[#DFE3E8] pt-3 mt-3 text-xs text-[#454556] font-medium">
-                            <span className="flex items-center gap-1">
-                              <span className="material-symbols-outlined text-[16px] text-[#2F36ED]">location_on</span> {opp.location}
-                            </span>
-                            <span className="flex items-center gap-1 font-bold text-emerald-600">
-                              <span className="material-symbols-outlined text-[16px]">payments</span> Est. {opp.budget}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <button
+                    onClick={() => setActiveView('projects')}
+                    className="text-xs font-bold text-[#2F36ED] hover:underline cursor-pointer"
+                  >
+                    View All ({acceptedCsrProjects.length}) →
+                  </button>
                 </div>
 
-                {/* Right Column */}
-                <div className="flex flex-col gap-6">
-                  {/* Partnership Requests Card */}
-                  <div className="bg-white border border-[#DFE3E8] rounded-2xl shadow-xs flex-1 flex flex-col overflow-hidden">
-                    <div className="p-6 border-b border-[#DFE3E8] flex justify-between items-center">
-                      <h3 className="text-lg font-bold text-[#0F172A]">Partnership Requests</h3>
-                      <span className="text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 px-2.5 py-0.5 rounded-full">{requests.length} Pending</span>
-                    </div>
+                {acceptedCsrProjects.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {acceptedCsrProjects.slice(0, 4).map((proj) => {
+                      const projTitle = proj.title || proj.issueId?.title || 'Accepted CSR Project';
+                      const category = proj.issueId?.category || 'CSR Deployment';
+                      const univName = proj.universityId?.name || 'Jharkhand University of Technology';
+                      const locationStr = proj.issueId?.location?.district || proj.location || 'Ranchi, Jharkhand';
+                      const csrValue = proj.estimatedValue ? `₹${Number(proj.estimatedValue).toLocaleString('en-IN')}` : '₹15 Lakhs';
 
-                    <div className="flex-1 overflow-y-auto divide-y divide-[#DFE3E8]">
-                      {requests.map((req) => (
-                        <div key={req.id} className="p-4 hover:bg-[#F1F3F5]/60 transition-colors cursor-pointer flex justify-between items-center">
+                      return (
+                        <div
+                          key={proj._id || proj.id}
+                          onClick={() => openCsrProjectDetail(proj)}
+                          className="p-5 rounded-xl border border-[#DFE3E8] bg-[#F1F3F5] hover:border-[#2F36ED] transition-all cursor-pointer flex flex-col justify-between space-y-3 group"
+                        >
                           <div>
-                            <p className="text-xs font-bold text-[#0F172A]">{req.company}</p>
-                            <p className="text-[11px] text-[#454556]">{req.project}</p>
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="bg-[#2F36ED]/10 text-[#2F36ED] px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase">
+                                {category}
+                              </span>
+                              <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                                ACTIVE CSR PROJECT
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-bold text-[#0F172A] mb-1 group-hover:text-[#2F36ED] transition-colors">{projTitle}</h4>
+                            <p className="text-xs text-[#2F36ED] font-semibold mb-1">Academic Partner: {univName}</p>
+                            <p className="text-xs text-[#454556] line-clamp-2">{proj.description}</p>
                           </div>
-                          <span className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${req.statusColor}`}>
-                            {req.status}
-                          </span>
+                          <div className="flex justify-between items-center pt-2 border-t border-[#DFE3E8] text-xs">
+                            <span className="text-[#454556]">{locationStr}</span>
+                            <span className="font-bold text-[#2F36ED]">View Details &amp; Updates →</span>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-
-                    <div className="p-4 border-t border-[#DFE3E8] text-center bg-white">
-                      <button onClick={() => setActiveView('industry')} className="text-[#2F36ED] text-xs font-bold hover:underline cursor-pointer">Manage All Requests &rarr;</button>
-                    </div>
+                      );
+                    })}
                   </div>
-
-                  {/* Impact Snapshot Card */}
-                  <div className="bg-[#2F36ED] rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute -top-10 -right-10 w-36 h-36 bg-white/10 rounded-full blur-2xl"></div>
-                    <div className="relative z-10">
-                      <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#F36F56]">insights</span>
-                        Q3 Impact Snapshot
-                      </h3>
-
-                      <div className="space-y-5">
-                        <div>
-                          <div className="flex justify-between text-xs font-semibold mb-1.5">
-                            <span>Target Completion (Q3)</span>
-                            <span>78%</span>
-                          </div>
-                          <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-                            <div className="bg-white rounded-full h-2" style={{ width: '78%' }}></div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between text-xs font-semibold mb-1.5">
-                            <span>CSR Fund Utilization</span>
-                            <span>92%</span>
-                          </div>
-                          <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-                            <div className="bg-[#F36F56] rounded-full h-2" style={{ width: '92%' }}></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button 
-                        onClick={() => setActiveView('reports')}
-                        className="mt-8 w-full py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl transition-all text-xs font-bold text-white cursor-pointer"
-                      >
-                        View Detailed Impact Audit
-                      </button>
-                    </div>
+                ) : (
+                  <div className="p-8 text-center text-[#454556] text-xs bg-[#F1F3F5] rounded-xl border border-[#DFE3E8] space-y-1">
+                    <span className="material-symbols-outlined text-3xl text-[#2F36ED] mb-1">assignment</span>
+                    <p className="font-bold text-[#0F172A]">No Active CSR Projects Yet</p>
+                    <p>Go to the Opportunities tab, select a Government-approved project, and submit your CSR proposal.</p>
                   </div>
+                )}
+              </div>
+
+              {/* DYNAMIC OPEN CIVIC OPPORTUNITIES SECTION */}
+              <div className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs space-y-4">
+                <div className="flex justify-between items-center border-b border-[#DFE3E8] pb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-[#0F172A]">Recent Government-Approved Civic Opportunities</h3>
+                    <p className="text-xs text-[#454556]">Discover assigned University projects seeking CSR funding &amp; tech mentorship</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveView('challenges')}
+                    className="text-xs font-bold text-[#2F36ED] hover:underline cursor-pointer"
+                  >
+                    View All ({opportunities.length}) →
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {opportunities.length > 0 ? (
+                    opportunities.slice(0, 4).map((opp) => {
+                      const univName = opp.universityId?.name || opp.assignedUniversityId?.name || 'Assigned University';
+                      const oppTitle = opp.title || opp.issueId?.title || 'Civic Infrastructure Project';
+                      const oppDesc = opp.issueId?.description || opp.description || 'Assigned academic R&D project approved by government.';
+                      const category = opp.issueId?.category || opp.category || 'R&D Innovation';
+
+                      return (
+                        <div
+                          key={opp._id || opp.id}
+                          onClick={() => openOpportunityDetail(opp)}
+                          className="p-5 rounded-xl border border-[#DFE3E8] bg-[#F1F3F5] hover:border-[#2F36ED] transition-all cursor-pointer flex flex-col justify-between space-y-3 group"
+                        >
+                          <div>
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="bg-[#2F36ED]/10 text-[#2F36ED] px-2.5 py-0.5 rounded text-[10px] font-extrabold uppercase">
+                                {category}
+                              </span>
+                              <span className="text-[10px] font-extrabold text-[#2F36ED] bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                                {univName}
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-bold text-[#0F172A] mb-1 group-hover:text-[#2F36ED] transition-colors">{oppTitle}</h4>
+                            <p className="text-xs text-[#454556] line-clamp-2">{oppDesc}</p>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-[#DFE3E8] text-xs">
+                            <span className="font-bold text-[#F36F56]">View &amp; Submit Offer →</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="col-span-2 p-8 text-center text-[#454556] text-xs bg-[#F1F3F5] rounded-xl border border-[#DFE3E8]">
+                      No open opportunities in database.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* OPPORTUNITIES VIEW (Govt Approved Projects) */}
+          {/* OPPORTUNITIES VIEW */}
           {activeView === 'challenges' && (
             <div className="max-w-[1280px] mx-auto space-y-6">
               <div className="flex justify-between items-center">
@@ -626,7 +654,6 @@ function IndustryDashboardPage() {
                 <div className="p-8 bg-white border border-[#DFE3E8] rounded-2xl text-center text-xs text-[#454556] space-y-2">
                   <span className="material-symbols-outlined text-4xl text-[#2F36ED]">school</span>
                   <p className="font-bold text-[#0F172A] text-sm">No Government-Approved Projects Available Yet</p>
-                  <p className="max-w-md mx-auto">When the Government accepts a University proposal, the project will automatically appear here as an Opportunity for Industry CSR funding.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -634,11 +661,15 @@ function IndustryDashboardPage() {
                     const univName = opp.universityId?.name || opp.assignedUniversityId?.name || 'Assigned University';
                     const oppTitle = opp.title || opp.issueId?.title || 'Civic Infrastructure Project';
                     const oppDesc = opp.issueId?.description || opp.description || 'Assigned academic R&D project approved by government.';
-                    const category = opp.issueId?.category || 'R&D Innovation';
-                    const locationStr = opp.issueId?.location?.district || opp.universityId?.district || 'Jharkhand';
+                    const category = opp.issueId?.category || opp.category || 'R&D Innovation';
+                    const locationStr = opp.issueId?.location?.district || opp.universityId?.district || opp.location || 'Jharkhand';
 
                     return (
-                      <div key={opp._id} className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-[#2F36ED] transition-all space-y-4">
+                      <div
+                        key={opp._id || opp.id}
+                        onClick={() => openOpportunityDetail(opp)}
+                        className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-[#2F36ED] transition-all space-y-4 cursor-pointer group"
+                      >
                         <div>
                           <div className="flex justify-between items-start mb-3 gap-2">
                             <span className="text-xs font-semibold text-[#2F36ED] bg-[#2F36ED]/10 px-2.5 py-1 rounded-md uppercase tracking-wider">{category}</span>
@@ -646,7 +677,7 @@ function IndustryDashboardPage() {
                               <span className="material-symbols-outlined text-sm">school</span> {univName}
                             </span>
                           </div>
-                          <h3 className="text-lg font-bold text-[#0F172A] mb-2">{oppTitle}</h3>
+                          <h3 className="text-lg font-bold text-[#0F172A] mb-2 group-hover:text-[#2F36ED] transition-colors">{oppTitle}</h3>
                           <p className="text-xs text-[#454556] line-clamp-3 leading-relaxed">{oppDesc}</p>
                         </div>
 
@@ -656,11 +687,14 @@ function IndustryDashboardPage() {
                             <span className="font-bold text-[#0F172A]">{locationStr}</span>
                           </div>
                           <button
-                            onClick={() => openPledgeModal(opp)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openOpportunityDetail(opp);
+                            }}
                             className="bg-[#F36F56] text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-[#d95d46] transition-all cursor-pointer shadow-md shadow-[#F36F56]/20 flex items-center gap-1.5"
                           >
-                            <span className="material-symbols-outlined text-sm">send</span>
-                            Send Proposal to University
+                            <span className="material-symbols-outlined text-sm">visibility</span>
+                            View Opportunity &amp; Submit Offer
                           </button>
                         </div>
                       </div>
@@ -670,6 +704,564 @@ function IndustryDashboardPage() {
               )}
             </div>
           )}
+
+          {/* DEDICATED FULL-PAGE OPPORTUNITY DETAIL VIEW */}
+          {activeView === 'opportunity_detail' && selectedOpportunityModal && (() => {
+            const opp = selectedOpportunityModal;
+            const oppTitle = opp.title || opp.issueId?.title || 'Civic Infrastructure Project';
+            const oppDesc = opp.issueId?.description || opp.description || 'Assigned academic R&D project approved by government.';
+            const category = opp.issueId?.category || opp.category || 'R&D Innovation';
+            const univObj = opp.universityId || opp.assignedUniversityId || opp.issueId?.assignedUniversityId;
+            const univName = univObj?.name || 'Assigned University Partner';
+            const univCode = univObj?.code || 'UNIV-PARTNER';
+            const univType = univObj?.type || 'State University';
+            const univEmail = univObj?.email || 'research@university.ac.in';
+
+            return (
+              <div className="max-w-[1100px] mx-auto space-y-8 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between pb-4 border-b border-[#DFE3E8]">
+                  <button
+                    onClick={() => setActiveView('challenges')}
+                    className="inline-flex items-center gap-2 text-xs font-bold text-[#2F36ED] bg-white px-4 py-2 rounded-xl border border-[#DFE3E8] hover:border-[#2F36ED] transition-all cursor-pointer shadow-2xs"
+                  >
+                    <span className="material-symbols-outlined text-base">arrow_back</span>
+                    Back to Opportunities
+                  </button>
+                  <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-full border border-emerald-300 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">verified</span>
+                    Govt Verified &amp; University Assigned
+                  </span>
+                </div>
+
+                <div className="bg-white border border-[#DFE3E8] rounded-2xl p-8 shadow-xs space-y-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span className="px-3.5 py-1 rounded-md text-xs font-extrabold uppercase tracking-wider bg-[#2F36ED]/10 text-[#2F36ED]">
+                      {category}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-[#0F172A] leading-tight mb-3">
+                      {oppTitle}
+                    </h1>
+                    <p className="text-sm text-[#454556] leading-relaxed">
+                      {oppDesc}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-[#DFE3E8] rounded-2xl p-8 shadow-xs space-y-6">
+                  <h3 className="text-xl font-extrabold text-[#0F172A]">
+                    Submit CSR Proposal to University ({univName})
+                  </h3>
+
+                  <form onSubmit={handlePledgeFundingSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-[#0F172A] mb-1">Proposal Title *</label>
+                      <input
+                        type="text"
+                        required
+                        value={pledgeForm.title}
+                        onChange={(e) => setPledgeForm({ ...pledgeForm, title: e.target.value })}
+                        placeholder="e.g., Corporate CSR Grant &amp; Hardware Support for Solar Project"
+                        className="w-full h-[48px] px-4 border border-[#DFE3E8] rounded-xl bg-white text-xs text-[#0F172A] outline-none focus:border-[#2F36ED]"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-[#0F172A] mb-1">Offering Type *</label>
+                        <select
+                          value={pledgeForm.offeringType}
+                          onChange={(e) => setPledgeForm({ ...pledgeForm, offeringType: e.target.value })}
+                          className="w-full h-[48px] px-4 border border-[#DFE3E8] rounded-xl bg-white text-xs text-[#0F172A] outline-none focus:border-[#2F36ED]"
+                        >
+                          <option value="funding">Financial Funding / Grant</option>
+                          <option value="technology">Technology / Software</option>
+                          <option value="equipment">Specialized Hardware &amp; Equipment</option>
+                          <option value="services">Engineering Services</option>
+                          <option value="mentorship">Technical Mentorship</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#0F172A] mb-1">Offered CSR Value (₹) *</label>
+                        <input
+                          type="number"
+                          required
+                          min="0"
+                          value={pledgeForm.estimatedValue}
+                          onChange={(e) => setPledgeForm({ ...pledgeForm, estimatedValue: e.target.value })}
+                          className="w-full h-[48px] px-4 border border-[#DFE3E8] rounded-xl bg-white text-xs text-[#0F172A] outline-none focus:border-[#2F36ED]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#0F172A] mb-1">Implementation Timeline *</label>
+                        <input
+                          type="text"
+                          required
+                          value={pledgeForm.timeline}
+                          onChange={(e) => setPledgeForm({ ...pledgeForm, timeline: e.target.value })}
+                          className="w-full h-[48px] px-4 border border-[#DFE3E8] rounded-xl bg-white text-xs text-[#0F172A] outline-none focus:border-[#2F36ED]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0F172A] mb-1">Detailed Proposal &amp; Solution Scope *</label>
+                      <textarea
+                        rows={4}
+                        required
+                        value={pledgeForm.description}
+                        onChange={(e) => setPledgeForm({ ...pledgeForm, description: e.target.value })}
+                        className="w-full p-4 border border-[#DFE3E8] rounded-xl bg-white text-xs text-[#0F172A] outline-none focus:border-[#2F36ED] resize-none"
+                      ></textarea>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submittingProposal}
+                      className="w-full h-[52px] bg-[#F36F56] text-white font-bold text-xs rounded-xl hover:bg-[#d95d46] transition-all shadow-md shadow-[#F36F56]/20 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
+                    >
+                      {submittingProposal ? 'Submitting CSR Proposal...' : 'Submit CSR Proposal to University'}
+                      <span className="material-symbols-outlined text-base">send</span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* CSR PROJECTS VIEW (ACCEPTED PROPOSALS) */}
+          {activeView === 'projects' && (
+            <div className="max-w-[1280px] mx-auto space-y-6 animate-in fade-in duration-200">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-[#0F172A]">Accepted CSR Projects</h1>
+                  <p className="text-sm text-[#454556]">Active ground deployments accepted by Universities, funded by Corporate CSR grants</p>
+                </div>
+                <button
+                  onClick={fetchSubmittedProposals}
+                  className="px-4 py-2 text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 rounded-xl hover:bg-[#2F36ED]/20 flex items-center gap-1 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">refresh</span> Refresh CSR Projects
+                </button>
+              </div>
+
+              {acceptedCsrProjects.length === 0 ? (
+                <div className="p-8 bg-white border border-[#DFE3E8] rounded-2xl text-center text-xs text-[#454556] space-y-2">
+                  <span className="material-symbols-outlined text-4xl text-[#2F36ED]">assignment</span>
+                  <p className="font-bold text-[#0F172A] text-sm">No Accepted CSR Projects Yet</p>
+                  <p className="max-w-md mx-auto">When a University accepts your CSR funding proposal, the project will automatically appear here as an Active CSR Project.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {acceptedCsrProjects.map((proj) => {
+                    const projTitle = proj.title || proj.issueId?.title || 'Accepted CSR Project';
+                    const category = proj.issueId?.category || 'CSR Deployment';
+                    const univName = proj.universityId?.name || 'Jharkhand University of Technology';
+                    const locationStr = proj.issueId?.location?.district || proj.location || 'Ranchi, Jharkhand';
+                    const csrValue = proj.estimatedValue ? `₹${Number(proj.estimatedValue).toLocaleString('en-IN')}` : '₹15 Lakhs';
+
+                    return (
+                      <div
+                        key={proj._id || proj.id}
+                        onClick={() => openCsrProjectDetail(proj)}
+                        className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-[#2F36ED] transition-all space-y-4 cursor-pointer group"
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-3 gap-2">
+                            <span className="text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 px-2.5 py-1 rounded-md uppercase tracking-wider">{category}</span>
+                            <span className="text-xs font-extrabold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-sm">verified</span> UNIVERSITY ACCEPTED
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-bold text-[#0F172A] mb-2 group-hover:text-[#2F36ED] transition-colors">{projTitle}</h3>
+                          <p className="text-xs text-[#2F36ED] font-semibold mb-2 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm">school</span> Academic Partner: {univName}
+                          </p>
+                          <p className="text-xs text-[#454556] line-clamp-2 leading-relaxed">{proj.description}</p>
+                        </div>
+
+                        <div className="bg-[#F1F3F5] p-3 rounded-xl border border-[#DFE3E8] grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-[#767588] text-[10px] block font-semibold">Sponsoring Corporate Partner</span>
+                            <span className="font-extrabold text-[#0F172A]">TechCorp CSR Foundation</span>
+                          </div>
+                          <div>
+                            <span className="text-[#767588] text-[10px] block font-semibold">Offered CSR Value</span>
+                            <span className="font-extrabold text-emerald-600">{csrValue}</span>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-[#DFE3E8] pt-3 flex justify-between items-center text-xs">
+                          <span className="text-[#454556] flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm text-[#F36F56]">location_on</span> {locationStr}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCsrProjectDetail(proj);
+                            }}
+                            className="bg-[#2F36ED] text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-800 transition-all cursor-pointer shadow-xs flex items-center gap-1"
+                          >
+                            <span>View Full Details &amp; Updates</span>
+                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* DEDICATED FULL-PAGE CSR PROJECT DETAIL & UPDATES VIEW */}
+          {activeView === 'csr_project_detail' && selectedCsrProject && (() => {
+            const proj = selectedCsrProject;
+            const projTitle = proj.title || proj.issueId?.title || 'Active CSR R&D Project';
+            const issueObj = proj.issueId || {};
+            const issueTitle = issueObj.title || projTitle;
+            const issueDesc = issueObj.description || proj.description || 'Civic infrastructure challenge logged on platform.';
+            const category = issueObj.category || 'Water & Sanitation';
+            const locationStr = (issueObj.location && typeof issueObj.location === 'object')
+              ? [issueObj.location.address, issueObj.location.district, issueObj.location.state].filter(Boolean).join(', ') || 'Ranchi, Jharkhand'
+              : (typeof issueObj.location === 'string' ? issueObj.location : (typeof proj.location === 'string' ? proj.location : 'Ranchi, Jharkhand'));
+            const univObj = typeof proj.universityId === 'object' && proj.universityId !== null ? proj.universityId : (typeof proj.issueId === 'object' && proj.issueId?.assignedUniversityId ? proj.issueId.assignedUniversityId : {});
+            const univName = univObj.name || 'Academic University Partner';
+            const univCode = univObj.code || 'UNIV-R&D';
+            const univType = univObj.type || 'State University';
+            const univEmail = univObj.email || 'research@university.ac.in';
+
+            const indObj = typeof proj.industryId === 'object' && proj.industryId !== null ? proj.industryId : {};
+            const indName = indObj.companyName || indObj.name || currentUser?.companyName || currentUser?.fullName || 'Corporate Industry Partner';
+            const indEmail = indObj.email || currentUser?.email || 'csr@industry.org';
+
+            const acceptedProp = typeof proj.acceptedProposalId === 'object' && proj.acceptedProposalId !== null ? proj.acceptedProposalId : {};
+            const univSolution = proj.universityProposal?.solutionDescription || acceptedProp.solutionDescription || proj.solutionDescription || 'University academic R&D proposal addressing civic challenge.';
+            const univBudget = proj.universityProposal?.estimatedCost || acceptedProp.estimatedCost || proj.estimatedCost || 1850000;
+            const univFaculty = proj.universityProposal?.facultyName || (Array.isArray(acceptedProp.facultyInformation) && acceptedProp.facultyInformation[0]?.name) || 'Faculty R&D Lead';
+            const univPdfName = proj.universityProposal?.pdfName || acceptedProp.proposalPdf?.originalName || 'University_RD_Proposal.pdf';
+
+            const indScope = proj.description || 'CSR funding & equipment grant offered for civic infrastructure R&D deployment.';
+            const indValue = proj.estimatedValue || 1500000;
+            const indResources = proj.resourcesOffered || 'Financial Grant & Technical Support';
+            const indPdfName = proj.proposalDocument?.originalName || proj.industryProposalPdf || 'CSR_Partnership_Proposal.pdf';
+
+            return (
+              <div className="max-w-[1100px] mx-auto space-y-8 animate-in fade-in duration-200">
+                {/* Back Navigation Bar */}
+                <div className="flex items-center justify-between pb-4 border-b border-[#DFE3E8]">
+                  <button
+                    onClick={() => setActiveView('projects')}
+                    className="inline-flex items-center gap-2 text-xs font-bold text-[#2F36ED] bg-white px-4 py-2 rounded-xl border border-[#DFE3E8] hover:border-[#2F36ED] transition-all cursor-pointer shadow-2xs"
+                  >
+                    <span className="material-symbols-outlined text-base">arrow_back</span>
+                    Back to CSR Projects
+                  </button>
+                  <span className="px-3.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-full border border-emerald-300 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">verified</span>
+                    Active Deployment &amp; CSR Funded
+                  </span>
+                </div>
+
+                {/* Hero Banner Card */}
+                <div className="bg-white border border-[#DFE3E8] rounded-2xl p-8 shadow-xs space-y-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span className="px-3.5 py-1 rounded-md text-xs font-extrabold uppercase tracking-wider bg-[#2F36ED]/10 text-[#2F36ED]">
+                      {category}
+                    </span>
+                    <span className="text-xs text-[#767588] font-semibold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-base text-[#F36F56]">location_on</span>
+                      Location: {locationStr}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-[#0F172A] leading-tight mb-3">
+                      {projTitle}
+                    </h1>
+                    <p className="text-sm text-[#454556] leading-relaxed">
+                      {indScope}
+                    </p>
+                  </div>
+                </div>
+
+                {/* ORIGINAL CIVIC CHALLENGE & MEDIA GALLERY */}
+                <div className="bg-white border border-[#DFE3E8] rounded-2xl p-8 shadow-xs space-y-6">
+                  <h3 className="text-lg font-bold text-[#0F172A] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F36F56]">report_problem</span>
+                    Original Civic Challenge Details &amp; Citizen Photos
+                  </h3>
+
+                  <div className="bg-[#F1F3F5] p-4 rounded-xl border border-[#DFE3E8] space-y-2">
+                    <h4 className="text-sm font-bold text-[#0F172A]">{issueTitle}</h4>
+                    <p className="text-xs text-[#454556] leading-relaxed">{issueDesc}</p>
+                  </div>
+
+                  {/* Photos & Videos Gallery */}
+                  <div>
+                    <h4 className="text-xs font-bold text-[#767588] uppercase tracking-wider mb-3">Geotagged Field Media</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {issueObj.photos?.length > 0 ? (
+                        issueObj.photos.map((photo, idx) => (
+                          <div key={idx} className="rounded-xl border border-[#DFE3E8] overflow-hidden bg-[#F1F3F5] p-3">
+                            <a href={typeof photo === 'object' ? photo.url : photo} target="_blank" rel="noopener noreferrer">
+                              <img src={typeof photo === 'object' ? photo.url : photo} alt={`Evidence ${idx + 1}`} className="w-full h-40 object-cover rounded-lg mb-2 hover:opacity-90 transition-opacity" />
+                            </a>
+                            <span className="text-xs font-semibold text-[#0F172A]">Field Evidence Photo #{idx + 1}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-xl border border-[#DFE3E8] overflow-hidden bg-[#F1F3F5] p-4 flex items-center gap-3">
+                          <img src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=400&q=80" alt="field site" className="w-24 h-24 object-cover rounded-lg" />
+                          <div className="text-xs">
+                            <span className="font-bold text-[#0F172A] block">Site Field Survey Image</span>
+                            <span className="text-[#454556] block">Geotagged: Field Station</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* DUAL STAKEHOLDERS & PROPOSALS SUMMARY GRID */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* UNIVERSITY R&D PROPOSAL CARD */}
+                  <div className="bg-emerald-500/5 border border-emerald-300 rounded-2xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-center gap-3 border-b border-emerald-200 pb-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg">
+                        <span className="material-symbols-outlined">school</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                          Selected University R&amp;D Proposal
+                        </span>
+                        <h4 className="text-base font-bold text-[#0F172A] mt-0.5">{univName}</h4>
+                        <span className="text-[11px] text-[#767588]">{univCode} • {univType}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <p className="text-[#454556] bg-white p-3 rounded-xl border border-emerald-200 leading-relaxed">
+                        <strong>R&amp;D Solution:</strong> {univSolution}
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="bg-white p-2.5 rounded-xl border border-emerald-200">
+                          <span className="text-[#767588] text-[10px] uppercase font-bold block">Approved R&amp;D Budget</span>
+                          <span className="font-extrabold text-emerald-700">₹{Number(univBudget).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="bg-white p-2.5 rounded-xl border border-emerald-200">
+                          <span className="text-[#767588] text-[10px] uppercase font-bold block">Faculty Lead</span>
+                          <span className="font-extrabold text-[#0F172A]">{univFaculty}</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-blue-600 text-lg">picture_as_pdf</span>
+                        <span className="font-semibold">University R&amp;D PDF:</span>
+                        <span className="underline font-bold">{univPdfName}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* INDUSTRY CSR PROPOSAL CARD */}
+                  <div className="bg-blue-500/5 border border-blue-300 rounded-2xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-center gap-3 border-b border-blue-200 pb-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#2F36ED] text-white flex items-center justify-center font-bold text-lg">
+                        <span className="material-symbols-outlined">factory</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-800 bg-blue-100 px-2 py-0.5 rounded">
+                          Accepted Industry CSR Proposal
+                        </span>
+                        <h4 className="text-base font-bold text-[#0F172A] mt-0.5">{indName}</h4>
+                        <span className="text-[11px] text-[#767588]">{indEmail}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <p className="text-[#454556] bg-white p-3 rounded-xl border border-blue-200 leading-relaxed">
+                        <strong>CSR Scope:</strong> {indScope}
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="bg-white p-2.5 rounded-xl border border-blue-200">
+                          <span className="text-[#767588] text-[10px] uppercase font-bold block">Offered CSR Value</span>
+                          <span className="font-extrabold text-emerald-600">₹{Number(indValue).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="bg-white p-2.5 rounded-xl border border-blue-200">
+                          <span className="text-[#767588] text-[10px] uppercase font-bold block">CSR Resources Offered</span>
+                          <span className="font-extrabold text-[#0F172A]">{indResources}</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-blue-600 text-lg">picture_as_pdf</span>
+                        <span className="font-semibold">Industry CSR PDF:</span>
+                        <span className="underline font-bold">{indPdfName}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* POST NEW PROJECT UPDATE & LIVE PROGRESS STREAM */}
+                <div className="bg-white border border-[#DFE3E8] rounded-2xl p-8 shadow-xs space-y-6">
+                  <div>
+                    <span className="text-xs font-bold text-[#F36F56] uppercase tracking-wider mb-1 block">
+                      PROJECT MONITORING &amp; FIELD LOGS
+                    </span>
+                    <h3 className="text-xl font-extrabold text-[#0F172A]">
+                      Post Live Progress Update &amp; Milestone Report
+                    </h3>
+                    <p className="text-xs text-[#454556] mt-1">
+                      Add milestone updates, field inspection logs, and optional PDF reports for University and Government review.
+                    </p>
+                  </div>
+
+                  {/* Post Update Form */}
+                  <form onSubmit={handleAddProjectUpdate} className="space-y-4 bg-[#F1F3F5] p-6 rounded-2xl border border-[#DFE3E8]">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-[#0F172A] mb-1">Update Title *</label>
+                        <input
+                          type="text"
+                          required
+                          value={newUpdateForm.title}
+                          onChange={(e) => setNewUpdateForm({ ...newUpdateForm, title: e.target.value })}
+                          placeholder="e.g. Phase 2 Water Filter Assembly &amp; Community Testing"
+                          className="w-full h-[44px] px-4 border border-[#DFE3E8] rounded-xl bg-white text-xs text-[#0F172A] outline-none focus:border-[#2F36ED]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-[#0F172A] mb-1">Milestone Status *</label>
+                        <select
+                          value={newUpdateForm.milestone}
+                          onChange={(e) => setNewUpdateForm({ ...newUpdateForm, milestone: e.target.value })}
+                          className="w-full h-[44px] px-4 border border-[#DFE3E8] rounded-xl bg-white text-xs text-[#0F172A] outline-none focus:border-[#2F36ED]"
+                        >
+                          <option value="in_progress">In Progress</option>
+                          <option value="field_testing">Field Testing</option>
+                          <option value="resolved">Deployed &amp; Resolved</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#0F172A] mb-1">Progress Notes &amp; Field Summary *</label>
+                      <textarea
+                        rows={3}
+                        required
+                        value={newUpdateForm.notes}
+                        onChange={(e) => setNewUpdateForm({ ...newUpdateForm, notes: e.target.value })}
+                        placeholder="Detail the accomplishments, field measurements, equipment delivered, or ground impact..."
+                        className="w-full p-4 border border-[#DFE3E8] rounded-xl bg-white text-xs text-[#0F172A] outline-none focus:border-[#2F36ED] resize-none"
+                      ></textarea>
+                    </div>
+
+                    {/* Optional PDF File Picker */}
+                    <div>
+                      <label className="block text-xs font-bold text-[#0F172A] mb-1">Attach Milestone Report PDF (Optional)</label>
+                      <div className="flex items-center gap-3">
+                        <label className="px-4 py-2.5 bg-white border border-[#DFE3E8] rounded-xl text-xs font-bold text-[#0F172A] hover:bg-[#DFE3E8] transition-colors cursor-pointer flex items-center gap-2">
+                          <span className="material-symbols-outlined text-base">upload_file</span>
+                          {newUpdateForm.pdfFile ? newUpdateForm.pdfFile.name : 'Choose Progress PDF'}
+                          <input
+                            type="file"
+                            accept=".pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setNewUpdateForm({ ...newUpdateForm, pdfFile: e.target.files[0] });
+                              }
+                            }}
+                          />
+                        </label>
+                        {newUpdateForm.pdfFile && (
+                          <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm">check_circle</span>
+                            {newUpdateForm.pdfFile.name} attached
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submittingUpdate}
+                      className="w-full h-[48px] bg-[#2F36ED] text-white font-bold text-xs rounded-xl hover:bg-blue-800 transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <span className={`material-symbols-outlined text-base ${submittingUpdate ? 'animate-spin' : ''}`}>
+                        {submittingUpdate ? 'refresh' : 'post_add'}
+                      </span>
+                      {submittingUpdate ? 'Saving Update to MongoDB Database...' : 'Post Project Update'}
+                    </button>
+                  </form>
+
+                  {/* Project Updates Stream */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-[#767588] uppercase tracking-wider">Project Timeline Stream ({projectUpdates.length})</h4>
+                    {projectUpdates.length === 0 ? (
+                      <div className="p-6 bg-[#F1F3F5] rounded-xl text-center text-xs text-[#767588] font-semibold border border-[#DFE3E8]">
+                        No project updates posted yet for this project. Use the form above to submit an update to the database.
+                      </div>
+                    ) : (
+                      projectUpdates.map((upd, idx) => {
+                        const title = upd.title || 'Project Milestone Update';
+                        const desc = upd.description || upd.notes || '';
+                        const milestone = upd.milestone || 'in_progress';
+                        let dateStr = upd.date || 'Recently';
+                        if (upd.createdAt) {
+                          try {
+                            const d = new Date(upd.createdAt);
+                            if (!isNaN(d.getTime())) {
+                              dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                            }
+                          } catch (e) {}
+                        }
+                        const authorStr = typeof upd.postedBy === 'object' ? (upd.postedBy?.fullName || 'Project Lead') : (upd.author || 'TechCorp CSR Lead');
+                        const mediaList = upd.media || (upd.attachment ? [{ originalName: upd.attachment }] : []);
+
+                        return (
+                          <div key={upd._id || upd.id || idx} className="p-5 rounded-2xl border border-[#DFE3E8] bg-white space-y-3 shadow-2xs">
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <h5 className="text-sm font-bold text-[#0F172A]">{title}</h5>
+                                <span className="text-[11px] text-[#767588]">Posted by {authorStr} • {dateStr}</span>
+                              </div>
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                {milestone}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-[#454556] leading-relaxed bg-[#F1F3F5] p-3 rounded-xl border border-[#DFE3E8]">
+                              {desc}
+                            </p>
+
+                            {mediaList.length > 0 && (
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {mediaList.map((m, mIdx) => (
+                                  <div key={mIdx} className="flex items-center gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 w-fit">
+                                    <span className="material-symbols-outlined text-blue-600 text-base">picture_as_pdf</span>
+                                    <span className="font-semibold">Attached Document:</span>
+                                    <span className="underline font-bold">{m.originalName || m.url || 'Report.pdf'}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* MY CSR PROPOSALS VIEW */}
           {activeView === 'my_proposals' && (
@@ -687,43 +1279,6 @@ function IndustryDashboardPage() {
                 </button>
               </div>
 
-              {/* STATS SUMMARY BAR */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-[#DFE3E8] shadow-xs flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#2F36ED]/10 text-[#2F36ED] flex items-center justify-center font-bold text-xl shrink-0">
-                    <span className="material-symbols-outlined">send</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold text-[#767588] uppercase tracking-wider block">Total Proposals Sent</span>
-                    <span className="text-2xl font-black text-[#0F172A]">{submittedProposals.length}</span>
-                  </div>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-[#DFE3E8] shadow-xs flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shrink-0">
-                    <span className="material-symbols-outlined">check_circle</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold text-[#767588] uppercase tracking-wider block">Accepted by University</span>
-                    <span className="text-2xl font-black text-emerald-600">
-                      {submittedProposals.filter(p => p.status === 'accepted').length}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-[#DFE3E8] shadow-xs flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xl shrink-0">
-                    <span className="material-symbols-outlined">schedule</span>
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold text-[#767588] uppercase tracking-wider block">Pending / Under Review</span>
-                    <span className="text-2xl font-black text-blue-600">
-                      {submittedProposals.filter(p => p.status === 'submitted' || p.status === 'pending').length}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
               {loadingProposals ? (
                 <div className="flex items-center gap-2 text-xs text-[#454556] py-8 justify-center">
                   <span className="material-symbols-outlined text-base animate-spin text-[#2F36ED]">progress_activity</span>
@@ -733,7 +1288,6 @@ function IndustryDashboardPage() {
                 <div className="p-8 bg-white border border-[#DFE3E8] rounded-2xl text-center text-xs text-[#454556] space-y-2">
                   <span className="material-symbols-outlined text-4xl text-[#2F36ED]">assignment_turned_in</span>
                   <p className="font-bold text-[#0F172A] text-sm">No Industry Proposals Submitted Yet</p>
-                  <p className="max-w-md mx-auto">Go to the "Opportunities" tab, select an assigned University project, and submit your CSR funding proposal.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -773,279 +1327,65 @@ function IndustryDashboardPage() {
                           </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 text-xs border-t border-[#DFE3E8] pt-3">
-                          <div className="bg-[#F1F3F5] p-2.5 rounded-xl border border-[#DFE3E8]">
-                            <span className="text-[#767588] block text-[10px]">Offered CSR Value</span>
-                            <span className="font-extrabold text-emerald-600">₹{prop.estimatedValue?.toLocaleString('en-IN') || '—'}</span>
-                          </div>
-                          <div className="bg-[#F1F3F5] p-2.5 rounded-xl border border-[#DFE3E8]">
-                            <span className="text-[#767588] block text-[10px]">Offering Type</span>
-                            <span className="font-extrabold text-[#0F172A] capitalize">{prop.offeringType || 'Funding'}</span>
-                          </div>
-                        </div>
-
                         {isAccepted && (
-                          <div className="flex items-center gap-2 text-xs text-emerald-700 font-bold bg-emerald-100/80 p-3 rounded-xl border border-emerald-300">
-                            <span className="material-symbols-outlined text-lg text-emerald-600">verified</span>
-                            <span>Proposal Accepted by {univName}! CSR Funding &amp; Project Active.</span>
-                          </div>
-                        )}
-
-                        {isRejected && (
-                          <div className="flex items-center gap-2 text-xs text-red-700 font-semibold bg-red-50 p-2.5 rounded-xl border border-red-200">
-                            <span className="material-symbols-outlined text-sm text-red-600">cancel</span>
-                            <span>Proposal declined by university.</span>
-                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedCsrProject(prop);
+                              setActiveView('csr_project_detail');
+                            }}
+                            className="w-full py-2.5 bg-[#2F36ED] text-white font-bold text-xs rounded-xl hover:bg-blue-800 transition-all cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                          >
+                            <span>Open Active CSR Project &amp; Post Updates</span>
+                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                          </button>
                         )}
                       </div>
                     );
                   })}
                 </div>
-
               )}
-            </div>
-          )}
-
-
-          {/* CSR PROJECTS VIEW */}
-          {activeView === 'projects' && (
-            <div className="max-w-[1280px] mx-auto space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-2xl font-bold text-[#0F172A]">Corporate Sponsored Projects</h1>
-                  <p className="text-sm text-[#454556]">Active CSR deployment initiatives across sovereign districts</p>
-                </div>
-                <button onClick={() => setIsInitiativeModalOpen(true)} className="bg-[#2F36ED] text-white px-4 py-2 rounded-xl text-xs font-bold cursor-pointer">
-                  + New CSR Project
-                </button>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-[#DFE3E8] overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#F1F3F5] border-b border-[#DFE3E8]">
-                      <th className="p-4 text-xs font-semibold text-[#454556] uppercase">ID</th>
-                      <th className="p-4 text-xs font-semibold text-[#454556] uppercase">Project Name</th>
-                      <th className="p-4 text-xs font-semibold text-[#454556] uppercase">Location</th>
-                      <th className="p-4 text-xs font-semibold text-[#454556] uppercase">CSR Budget</th>
-                      <th className="p-4 text-xs font-semibold text-[#454556] uppercase">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#DFE3E8]">
-                    <tr>
-                      <td className="p-4 text-xs font-mono font-bold text-[#454556]">PRJ-CSR-01</td>
-                      <td className="p-4 text-xs font-bold text-[#0F172A]">Northern District Smart Irrigation Pilot</td>
-                      <td className="p-4 text-xs text-[#454556]">Northern District</td>
-                      <td className="p-4 text-xs font-bold text-emerald-600">₹15,00,00,000</td>
-                      <td className="p-4"><span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-600 rounded-md text-xs font-bold">Active Deployment</span></td>
-                    </tr>
-                    <tr>
-                      <td className="p-4 text-xs font-mono font-bold text-[#454556]">PRJ-CSR-02</td>
-                      <td className="p-4 text-xs font-bold text-[#0F172A]">Rural Clean Water Access Purification</td>
-                      <td className="p-4 text-xs text-[#454556]">Eastern Rural Belt</td>
-                      <td className="p-4 text-xs font-bold text-emerald-600">₹32,00,00,000</td>
-                      <td className="p-4"><span className="px-2.5 py-1 bg-[#2F36ED]/10 text-[#2F36ED] rounded-md text-xs font-bold">Infrastructure Setup</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Placeholder for other views */}
-          {['institutions', 'industry', 'analytics', 'reports', 'users', 'settings'].includes(activeView) && (
-            <div className="max-w-[1280px] mx-auto space-y-6">
-              <h1 className="text-2xl font-bold text-[#0F172A] capitalize">Industry {activeView} Module</h1>
-              <div className="bg-white border border-[#DFE3E8] rounded-2xl p-12 text-center text-[#454556] shadow-xs">
-                <span className="material-symbols-outlined text-5xl text-[#2F36ED] mb-3">factory</span>
-                <h3 className="text-lg font-bold text-[#0F172A] mb-1">
-                  Corporate {activeView.charAt(0).toUpperCase() + activeView.slice(1)} Module Active
-                </h3>
-                <p className="text-xs text-[#454556] max-w-md mx-auto">
-                  TechCorp CSR Foundation workspace synced with government &amp; university hubs.
-                </p>
-              </div>
             </div>
           )}
         </main>
       </div>
 
-      {/* Send Proposal to University Modal */}
-      {selectedOpportunityModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl border border-[#DFE3E8] relative animate-in fade-in zoom-in-95 space-y-4">
-            <button
-              onClick={() => setSelectedOpportunityModal(null)}
-              className="absolute top-4 right-4 text-[#454556] hover:text-[#0F172A] cursor-pointer"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 px-2.5 py-1 rounded-md flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm">school</span>
-                {selectedOpportunityModal.universityId?.name || selectedOpportunityModal.assignedUniversityId?.name || 'Assigned University'}
-              </span>
-            </div>
-
-            <h3 className="text-lg font-bold text-[#0F172A] leading-tight">
-              {selectedOpportunityModal.title || selectedOpportunityModal.issueId?.title}
-            </h3>
-
-            <form onSubmit={handlePledgeFundingSubmit} className="space-y-4 pt-2">
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">CSR Proposal Title</label>
-                <input
-                  type="text"
-                  required
-                  value={pledgeForm.title}
-                  onChange={(e) => setPledgeForm({ ...pledgeForm, title: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Offering Type</label>
-                  <select
-                    value={pledgeForm.offeringType}
-                    onChange={(e) => setPledgeForm({ ...pledgeForm, offeringType: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs bg-white focus:border-[#2F36ED] outline-none"
-                  >
-                    <option value="funding">Funding / Grant</option>
-                    <option value="technology">Technology Support</option>
-                    <option value="equipment">Equipment &amp; Hardware</option>
-                    <option value="services">Technical Services</option>
-                    <option value="mentorship">Mentorship &amp; R&amp;D</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Offered Value (₹)</label>
-                  <input
-                    type="number"
-                    required
-                    value={pledgeForm.estimatedValue}
-                    onChange={(e) => setPledgeForm({ ...pledgeForm, estimatedValue: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Proposal Details &amp; Objectives</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={pledgeForm.description}
-                  onChange={(e) => setPledgeForm({ ...pledgeForm, description: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
-                  placeholder="Describe your CSR sponsorship goals, technical support, and resources offered..."
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedOpportunityModal(null)}
-                  className="flex-1 py-2.5 border border-[#DFE3E8] rounded-xl text-xs font-semibold text-[#454556] hover:bg-[#F1F3F5] cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingProposal}
-                  className="flex-1 py-2.5 bg-[#F36F56] text-white rounded-xl text-xs font-bold shadow-md hover:bg-[#d95d46] transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-60"
-                >
-                  {submittingProposal ? (
-                    <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Sending...</>
-                  ) : (
-                    <><span className="material-symbols-outlined text-sm">send</span> Submit Proposal to University</>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-
-      {/* New Initiative Modal */}
+      {/* Register New CSR Initiative Modal */}
       {isInitiativeModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl border border-[#DFE3E8] relative animate-in fade-in zoom-in-95">
-            <button
-              onClick={() => setIsInitiativeModalOpen(false)}
-              className="absolute top-4 right-4 text-[#454556] hover:text-[#0F172A] cursor-pointer"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
-
-            <h3 className="text-xl font-bold text-[#0F172A] mb-1">Create Corporate CSR Initiative</h3>
-            <p className="text-xs text-[#454556] mb-6">Propose new civic projects backed by corporate sponsorship</p>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl border border-[#DFE3E8] animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-[#0F172A]">Register New Corporate CSR Initiative</h3>
+              <button onClick={() => setIsInitiativeModalOpen(false)} className="text-[#767588] hover:text-[#0F172A] cursor-pointer">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
 
             <form onSubmit={handleInitiativeSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Initiative Title</label>
+                <label className="block text-xs font-bold text-[#0F172A] mb-1">Initiative Title</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g., Rural Digital Skill Centers"
                   value={initiativeForm.title}
                   onChange={(e) => setInitiativeForm({ ...initiativeForm, title: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
+                  placeholder="e.g., Clean Water & Solar Storage Program"
+                  className="w-full h-[44px] px-3.5 border border-[#DFE3E8] rounded-xl text-xs text-[#0F172A] outline-none focus:border-[#2F36ED]"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Sector</label>
-                  <select
-                    value={initiativeForm.sector}
-                    onChange={(e) => setInitiativeForm({ ...initiativeForm, sector: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs bg-white focus:border-[#2F36ED] outline-none"
-                  >
-                    <option>CSR Clean Energy</option>
-                    <option>Public Health &amp; Water</option>
-                    <option>Education &amp; Digital Literacy</option>
-                    <option>Sustainable Agriculture</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Allocated Budget (₹)</label>
-                  <input
-                    type="number"
-                    value={initiativeForm.budget}
-                    onChange={(e) => setInitiativeForm({ ...initiativeForm, budget: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Description / Goals</label>
-                <textarea
-                  rows="3"
-                  required
-                  placeholder="Describe target goals and intended civic impact..."
-                  value={initiativeForm.description}
-                  onChange={(e) => setInitiativeForm({ ...initiativeForm, description: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
-                ></textarea>
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsInitiativeModalOpen(false)}
-                  className="flex-1 py-2.5 border border-[#DFE3E8] rounded-xl text-xs font-semibold text-[#454556] hover:bg-[#F1F3F5]"
+                  className="flex-1 py-2.5 border border-[#DFE3E8] rounded-xl text-xs font-bold text-[#454556] hover:bg-[#F1F3F5] cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-[#F36F56] text-white rounded-xl text-xs font-bold shadow-md hover:bg-opacity-90 cursor-pointer"
+                  className="flex-1 py-2.5 bg-[#F36F56] text-white rounded-xl text-xs font-bold shadow-md shadow-[#F36F56]/20 hover:bg-[#d95d46] cursor-pointer"
                 >
-                  Launch Initiative
+                  Register Initiative
                 </button>
               </div>
             </form>

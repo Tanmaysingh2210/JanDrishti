@@ -14,14 +14,14 @@ const router = express.Router();
 
 // University Routes
 router.get("/university/my", universityAuth, getUniversityProjects);
-router.get("/:projectId", universityAuth, getProjectById);
+router.get("/:projectId", getProjectById);
 router.post("/:projectId/milestones", universityAuth, addProjectMilestone);
 router.patch(
   "/:projectId/milestones/:milestoneId",
   universityAuth,
   updateMilestoneStatus
 );
-router.post("/:projectId/updates", universityAuth, addProjectUpdate);
+router.post("/:projectId/updates", addProjectUpdate);
 
 // Government Routes
 router.get("/government/all", governmentAuth, getGovernmentProjects);

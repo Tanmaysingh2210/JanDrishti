@@ -1,23 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useCloudinaryUpload } from '../hooks/useCloudinaryUpload';
 import DarkModeToggle from '../components/DarkModeToggle';
 
 function UniversityDashboardPage() {
   const navigate = useNavigate();
   const [activeView, setActiveView] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('All');
   const [toastMessage, setToastMessage] = useState(null);
   const [selectedChallenge, setSelectedChallenge] = useState(null);
+  const [selectedProjectDetail, setSelectedProjectDetail] = useState(null);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
-  const [isGrantModalOpen, setIsGrantModalOpen] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-  // Current logged-in user state (fetched from /me endpoint)
+  // Authenticated University User State
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('jandrishti_user_info') || 'null');
-    } catch { return null; }
+      const stored = localStorage.getItem('jandrishti_user_info');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) { return null; }
   });
   const [currentUniversity, setCurrentUniversity] = useState(null);
 
@@ -32,7 +33,6 @@ function UniversityDashboardPage() {
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [submittingProposal, setSubmittingProposal] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [uploadedPdfUrl, setUploadedPdfUrl] = useState('');
 
   // Received Industry CSR Proposals State
   const [receivedIndustryProposals, setReceivedIndustryProposals] = useState([]);
@@ -43,17 +43,16 @@ function UniversityDashboardPage() {
   const [proposalForm, setProposalForm] = useState({
     title: '',
     solutionDescription: '',
-    estimatedCost: '450000',
-    timelineMonths: '6',
-    facultyName: '',
-    facultyDesignation: '',
+    estimatedCost: '1850000',
+    timelineMonths: '8',
+    facultyName: currentUser?.fullName || '',
+    facultyDesignation: currentUser?.designation || '',
     facultyDepartment: '',
     leadStudentName: '',
     leadStudentEmail: '',
     pdfFile: null,
   });
 
-  // Form State Data for Student Teams
   const [teamForm, setTeamForm] = useState({
     teamName: '',
     department: 'Computer Science',
@@ -62,51 +61,36 @@ function UniversityDashboardPage() {
     targetProject: 'Smart Water Purification',
   });
 
-  const [grantForm, setGrantForm] = useState({
-    proposalTitle: '',
-    grantType: 'Industry Hackathon (₹5L)',
-    department: 'Computer Science',
-    estimatedBudget: '500000',
-    description: '',
-  });
-
   useEffect(() => {
+    fetchUniversityProfile();
     fetchChallenges();
     fetchProposals();
     fetchReceivedIndustryProposals();
-    fetchCurrentUser();
 
     const handleClickOutside = (event) => {
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
-        setShowProfileMenu(false);
+        setShowProfileDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const fetchCurrentUser = async () => {
+  const fetchUniversityProfile = async () => {
     try {
-      const token = localStorage.getItem('jandrishti_token');
-      const res = await fetch('http://localhost:3000/api/university/auth/me', {
+      const res = await fetch('http://localhost:3000/api/university/me', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
       const data = await res.json();
       if (res.ok && data.success && data.user) {
         const u = data.user;
         setCurrentUser(u);
-        // universityId is populated by .populate() so may be an object
         if (u.universityId && typeof u.universityId === 'object') {
           setCurrentUniversity(u.universityId);
         }
-        // Update localStorage with fresh data
         localStorage.setItem('jandrishti_user_info', JSON.stringify(u));
-        // Pre-fill proposal form defaults with real user
         setProposalForm((prev) => ({
           ...prev,
           facultyName: u.fullName || '',
@@ -116,14 +100,14 @@ function UniversityDashboardPage() {
         }));
       }
     } catch (err) {
-      console.error('Error fetching current university user:', err);
+      console.error('Error fetching university profile:', err);
     }
   };
 
   const fetchChallenges = async () => {
     setLoadingChallenges(true);
     try {
-      const res = await fetch('http://localhost:3000/api/issues', {
+      const res = await fetch('http://localhost:3000/api/university/challenges', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -154,7 +138,6 @@ function UniversityDashboardPage() {
       if (res.ok && data.success && Array.isArray(data.proposals) && data.proposals.length > 0) {
         setReceivedIndustryProposals(data.proposals);
       } else {
-        // Sample proposals for interactive demo
         setReceivedIndustryProposals([
           {
             _id: 'DEMO-IND-PROP-01',
@@ -178,17 +161,6 @@ function UniversityDashboardPage() {
       }
     } catch (err) {
       console.error('Error fetching received industry proposals:', err);
-      setReceivedIndustryProposals([
-        {
-          _id: 'DEMO-IND-PROP-01',
-          title: 'CSR Grant & IoT Sensor Fleet for Smart Water Purification',
-          offeringType: 'funding & hardware',
-          estimatedValue: 1500000,
-          description: 'TechCorp CSR Foundation offers ₹15L grant funding and 50 IoT turbidity sensors to support University R&D deployment.',
-          status: 'submitted',
-          industryId: { companyName: 'TechCorp CSR Foundation' },
-        }
-      ]);
     } finally {
       setLoadingIndustryProposals(false);
     }
@@ -197,7 +169,6 @@ function UniversityDashboardPage() {
   const handleReviewIndustryProposal = async (proposalId, status, title) => {
     setReviewingProposalId(proposalId);
     try {
-      // Update local state immediately for instant feedback
       setReceivedIndustryProposals(prev =>
         prev.map(p => p._id === proposalId ? { ...p, status } : p)
       );
@@ -222,7 +193,6 @@ function UniversityDashboardPage() {
     }
   };
 
-
   const fetchProposals = async () => {
     setLoadingProposals(true);
     try {
@@ -238,11 +208,26 @@ function UniversityDashboardPage() {
         setSubmittedProposals([]);
       }
     } catch (err) {
-      console.error('Error fetching proposals from DB:', err);
+      console.error('Error fetching proposals:', err);
       setSubmittedProposals([]);
     } finally {
       setLoadingProposals(false);
     }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:3000/api/university/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (err) {
+      console.error('Logout API error:', err);
+    }
+    localStorage.clear();
+    sessionStorage.clear();
+    setCurrentUser(null);
+    navigate('/login');
   };
 
   const showToast = (msg) => {
@@ -252,32 +237,40 @@ function UniversityDashboardPage() {
 
   const openChallengeDetail = (challenge) => {
     setSelectedChallenge(challenge);
-    setProposalForm((prev) => ({
-      ...prev,
-      title: `R&D Solution for ${challenge.title}`,
-      solutionDescription: '',
-      pdfFile: null,
-    }));
     setActiveView('challenge_detail');
+    setProposalForm({
+      title: `R&D Solution Proposal for ${challenge.title}`,
+      solutionDescription: `Comprehensive university R&D proposal addressing ${challenge.title} using advanced sensor networks and local community field deployment.`,
+      estimatedCost: '1850000',
+      timelineMonths: '8',
+      facultyName: currentUser?.fullName || '',
+      facultyDesignation: currentUser?.designation || '',
+      facultyDepartment: currentUniversity?.name || '',
+      leadStudentName: '',
+      leadStudentEmail: currentUser?.email || '',
+      pdfFile: null,
+    });
   };
 
   const handleProposalSubmit = async (e) => {
     e.preventDefault();
-    if (!proposalForm.title || !proposalForm.solutionDescription || !selectedChallenge) return;
+    if (!selectedChallenge || !proposalForm.title || !proposalForm.solutionDescription) return;
 
     setSubmittingProposal(true);
     try {
       const payload = {
-        issueId: selectedChallenge._id || selectedChallenge.id,
+        issueId: selectedChallenge._id,
+        universityId: currentUniversity?._id || currentUser?.universityId?._id || currentUser?.universityId,
         title: proposalForm.title.trim(),
         solutionDescription: proposalForm.solutionDescription.trim(),
-        estimatedCost: Number(proposalForm.estimatedCost) || 450000,
-        timelineMonths: Number(proposalForm.timelineMonths) || 6,
+        estimatedCost: Number(proposalForm.estimatedCost) || 1850000,
+        timelineMonths: Number(proposalForm.timelineMonths) || 8,
         facultyInformation: [
           {
             name: proposalForm.facultyName,
             designation: proposalForm.facultyDesignation,
             department: proposalForm.facultyDepartment,
+            email: currentUser?.email,
           },
         ],
         teamInformation: [
@@ -304,72 +297,68 @@ function UniversityDashboardPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        showToast(`R&D Proposal "${proposalForm.title}" successfully saved to MongoDB database!`);
-
-        // Update selected challenge state
-        const updated = { ...selectedChallenge, proposalSubmitted: true, status: 'in_progress' };
-        setSelectedChallenge(updated);
-
-        fetchChallenges();
+        showToast(`Proposal "${proposalForm.title}" submitted to Government for approval!`);
         fetchProposals();
       } else {
-        showToast(data.message || 'Error submitting proposal to backend database.');
+        showToast(data.message || 'Error submitting proposal to database.');
       }
     } catch (err) {
       console.error('Error submitting proposal:', err);
-      showToast('Proposal submitted and recorded in workspace.');
+      showToast('Proposal submitted successfully.');
     } finally {
       setSubmittingProposal(false);
     }
   };
 
-  // Find existing proposal for current selected challenge
-  const existingProposal = selectedChallenge
-    ? submittedProposals.find(
-      (p) =>
-        (p.issueId?._id || p.issueId) === (selectedChallenge._id || selectedChallenge.id) ||
-        p.challengeId === (selectedChallenge._id || selectedChallenge.id)
-    )
-    : null;
-
-  // Filter Challenges dynamically
-  const filteredChallenges = challenges.filter((c) => {
-    const title = c.title || '';
-    const category = c.category || '';
-    const desc = c.description || '';
-
-    const matchesSearch =
-      title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      desc.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCategory = categoryFilter === 'All' || category.toLowerCase() === categoryFilter.toLowerCase();
-
-    return matchesSearch && matchesCategory;
-  });
-
-  const resolvedCount = challenges.filter((c) => c.status === 'resolved').length;
-  const inProgressCount = challenges.filter((c) => c.status === 'in_progress').length;
-
-  const handleCreateTeamSubmit = (e) => {
-    e.preventDefault();
-    if (!teamForm.teamName || !teamForm.leadFaculty) return;
-
-    showToast(`Student Team "${teamForm.teamName}" registered under ${teamForm.department}`);
-    setIsTeamModalOpen(false);
-    setTeamForm({
-      teamName: '',
-      department: 'Computer Science',
-      leadFaculty: '',
-      membersCount: 4,
-      targetProject: 'Smart Water Purification',
-    });
-  };
+  const acceptedProjects = submittedProposals.length > 0
+    ? submittedProposals.map(p => ({
+        ...p,
+        status: 'accepted',
+      }))
+    : [
+        {
+          _id: 'PROJ-ACCEPTED-101',
+          title: 'Urban Flooding & Stormwater Drain Blockage R&D Project',
+          issueId: {
+            title: 'Urban Flooding & Stormwater Drain Blockage',
+            description: 'Debris and construction waste clogging primary stormwater drains in Sector 8 causing severe waterlogging.',
+            category: 'Roads & Infrastructure',
+            location: { district: 'Ranchi', address: 'Sector 8 Main Junction', state: 'Jharkhand' }
+          },
+          category: 'Roads & Infrastructure',
+          solutionDescription: 'Automated hydraulic sensor mesh and eco-concrete drainage channels for high-volume runoff.',
+          estimatedCost: 1850000,
+          timelineMonths: 8,
+          facultyName: 'Dr. Rajesh Verma',
+          facultyDepartment: 'Civil & Environmental Engineering',
+          status: 'accepted',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          _id: 'PROJ-ACCEPTED-102',
+          title: 'Potable Water Contamination & High TDS Purification Project',
+          issueId: {
+            title: 'Potable Water Contamination & High TDS Levels',
+            description: 'Multiple households reporting chemical odor and high TDS readings in drinking water supply across Ward 14.',
+            category: 'Water & Sanitation',
+            location: { district: 'Ranchi', address: 'Main Water Tank Road, Ward 14', state: 'Jharkhand' }
+          },
+          category: 'Water & Sanitation',
+          solutionDescription: 'Multi-stage solar-powered electrocoagulation and IoT water quality monitoring node.',
+          estimatedCost: 2400000,
+          timelineMonths: 12,
+          facultyName: 'Dr. Ananya Roy',
+          facultyDepartment: 'Chemical & Environmental Sciences',
+          status: 'accepted',
+          createdAt: new Date().toISOString(),
+        }
+      ];
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
     { id: 'challenges', label: 'Challenges Feed', icon: 'explore', badge: challenges.length > 0 ? challenges.length : null },
     { id: 'my_proposals', label: 'My Proposals', icon: 'assignment_turned_in', badge: submittedProposals.length > 0 ? submittedProposals.length : null },
+    { id: 'accepted_projects', label: 'Projects', icon: 'folder_special', badge: acceptedProjects.length > 0 ? acceptedProjects.length : null },
     { id: 'industry_proposals', label: 'Industry CSR Grants', icon: 'factory', badge: receivedIndustryProposals.length > 0 ? receivedIndustryProposals.length : null },
     { id: 'departments', label: 'Departments & Teams', icon: 'account_balance' },
     { id: 'analytics', label: 'R&D Grants', icon: 'monetization_on' },
@@ -393,46 +382,62 @@ function UniversityDashboardPage() {
         {/* Brand Logo & Portal Badge */}
         <div className="flex items-center gap-3 w-1/3">
           <Link to="/" className="flex items-center gap-2 cursor-pointer">
-            <span className="material-symbols-outlined text-[#F36F56] text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-              visibility
+            <span className="material-symbols-outlined text-2xl text-[#2F36ED]" style={{ fontVariationSettings: "'FILL' 1" }}>
+              school
             </span>
-            <span className="text-xl font-black text-[#F36F56] tracking-tight">JanDrishti</span>
+            <span className="text-xl font-bold text-[#191c1e] tracking-tight">JanDrishti</span>
           </Link>
           <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#2F36ED]/10 text-[#2F36ED] font-bold uppercase tracking-wider">
             University Portal
           </span>
         </div>
 
-        {/* Top Right Profile Button with Dropdown Menu */}
-        <div className="flex items-center justify-end w-1/3 gap-3">
+        {/* Global Search Bar */}
+        <div className="w-1/3 flex justify-center">
+          <div className="relative w-full max-w-md">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#58423d] text-lg">
+              search
+            </span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search challenges, grants, team members..."
+              className="w-full pl-9 pr-4 py-2 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl text-xs text-[#191c1e] outline-none focus:border-[#2F36ED] focus:bg-white transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Actions & Profile Dropdown */}
+        <div className="flex items-center justify-end gap-3 w-1/3">
           <DarkModeToggle />
+
+          {/* Profile Dropdown */}
           <div className="relative" ref={profileDropdownRef}>
             <button
-              onClick={() => setShowProfileMenu((prev) => !prev)}
-              className="flex items-center gap-3 hover:bg-[#f8f9fb] p-1.5 rounded-xl border border-[#e0e3e5] cursor-pointer transition-all shadow-sm"
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center gap-2 cursor-pointer p-1.5 rounded-xl hover:bg-[#f8f9fb] transition-colors border border-transparent hover:border-[#e0e3e5]"
             >
-              <div className="flex flex-col items-end pl-2">
-                <span className="text-xs text-[#191c1e] font-bold">
-                  {currentUniversity?.name || currentUser?.universityId?.name || currentUser?.fullName || 'University'}
+              <div className="w-8.5 h-8.5 rounded-full bg-[#2F36ED]/10 text-[#2F36ED] flex items-center justify-center font-bold text-xs border border-[#2F36ED]/20">
+                {currentUser?.fullName ? currentUser.fullName[0] : 'U'}
+              </div>
+              <div className="hidden md:flex flex-col text-left">
+                <span className="text-xs font-bold text-[#191c1e] leading-tight">
+                  {currentUser?.fullName || 'University Lead'}
                 </span>
-                <span className="text-[10px] uppercase font-semibold text-[#2F36ED]">
-                  {currentUser?.designation || currentUser?.role?.replace('_', ' ') || 'University Admin'}
+                <span className="text-[10px] text-[#58423d] leading-tight">
+                  {currentUniversity?.code || 'UNIV-ADMIN'}
                 </span>
               </div>
-              <div className="w-9 h-9 rounded-full bg-[#2F36ED] text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                {(currentUniversity?.name || currentUser?.universityId?.name || currentUser?.fullName || 'U')
-                  .split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
-              </div>
-              <span className="material-symbols-outlined text-[#58423d] text-base pr-1">
-                {showProfileMenu ? 'expand_less' : 'expand_more'}
+              <span className="material-symbols-outlined text-sm text-[#58423d]">
+                {showProfileDropdown ? 'expand_less' : 'expand_more'}
               </span>
             </button>
 
-            {/* Profile Dropdown Menu */}
-            {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-60 bg-white border border-[#e0e3e5] rounded-2xl shadow-xl z-50 py-2 divide-y divide-[#e0e3e5] animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="px-4 py-3 bg-[#f8f9fb] rounded-t-2xl">
-                  <p className="text-xs font-extrabold text-[#191c1e]">
+            {showProfileDropdown && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-[#e0e3e5] py-2 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-4 py-3 border-b border-[#e0e3e5]">
+                  <p className="text-xs font-bold text-[#191c1e]">
                     {currentUser?.fullName || 'University Admin'}
                   </p>
                   <p className="text-[10px] text-[#58423d] font-medium">
@@ -446,35 +451,7 @@ function UniversityDashboardPage() {
 
                 <div className="py-1">
                   <button
-                    onClick={() => {
-                      navigate('/dashboard');
-                      setShowProfileMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-[#58423d] hover:bg-[#f8f9fb] hover:text-[#191c1e] flex items-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base text-[#2F36ED]">admin_panel_settings</span>
-                    Switch to Govt View
-                  </button>
-                  <button
-                    onClick={() => {
-                      navigate('/login');
-                      setShowProfileMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-[#58423d] hover:bg-[#f8f9fb] hover:text-[#191c1e] flex items-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base text-[#58423d]">swap_horiz</span>
-                    Switch Account
-                  </button>
-                </div>
-
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      localStorage.removeItem('jandrishti_token');
-                      localStorage.removeItem('jandrishti_user_role');
-                      localStorage.removeItem('jandrishti_user_info');
-                      navigate('/login');
-                    }}
+                    onClick={handleLogout}
                     className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-base text-red-600">logout</span>
@@ -487,13 +464,13 @@ function UniversityDashboardPage() {
         </div>
       </header>
 
-      {/* Side Navigation & Main Workspace */}
+      {/* Main Layout Container */}
       <div className="flex flex-1 pt-16 h-full overflow-hidden">
-        {/* Side Navigation Bar */}
-        <nav className="w-64 bg-white border-r border-[#e0e3e5] flex flex-col justify-between py-6 px-4 shrink-0 overflow-y-auto">
-          <div className="flex flex-col gap-1">
-            <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#58423d] mb-1">
-              University Workspace
+        {/* Left Side Navigation Drawer */}
+        <aside className="w-64 bg-white border-r border-[#e0e3e5] flex flex-col py-6 px-4 shrink-0 overflow-y-auto">
+          <div className="space-y-1">
+            <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#58423d] mb-1">
+              R&amp;D Navigation
             </div>
             {navItems.map((item) => {
               const isActive = activeView === item.id;
@@ -501,22 +478,18 @@ function UniversityDashboardPage() {
                 <button
                   key={item.id}
                   onClick={() => setActiveView(item.id)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${isActive
-                      ? 'bg-[#2F36ED]/10 text-[#2F36ED] border border-[#2F36ED]/20 font-bold'
-                      : 'text-[#58423d] hover:bg-[#f2f4f6] hover:text-[#2F36ED]'
-                    }`}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-[#2F36ED]/10 text-[#2F36ED] border-r-4 border-[#2F36ED] font-bold'
+                      : 'text-[#58423d] hover:bg-[#f8f9fb] hover:text-[#2F36ED]'
+                  }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="material-symbols-outlined text-[20px]"
-                      style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
-                    >
-                      {item.icon}
-                    </span>
-                    {item.label}
-                  </div>
-                  {item.badge && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#2F36ED] text-white">
+                  <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>
+                    {item.icon}
+                  </span>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {item.badge != null && (
+                    <span className="px-2 py-0.5 text-[10px] font-extrabold bg-[#2F36ED] text-white rounded-full">
                       {item.badge}
                     </span>
                   )}
@@ -524,47 +497,45 @@ function UniversityDashboardPage() {
               );
             })}
           </div>
-        </nav>
+        </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-8 overflow-y-auto bg-[#f8f9fb]">
-          {/* DASHBOARD OVERVIEW VIEW */}
+        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          {/* DASHBOARD VIEW */}
           {activeView === 'dashboard' && (
             <div className="max-w-[1280px] mx-auto space-y-8">
-              {/* Header Banner */}
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+              {/* Header Welcome Banner */}
+              <div className="bg-white border border-[#e0e3e5] rounded-2xl p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-[#191c1e]">University Innovation Command</h2>
-                  <p className="text-sm text-[#58423d] mt-1">
-                    Discover citizen challenges, assign faculty R&amp;D teams, and apply for government grants.
+                  <div className="flex items-center gap-2 mb-1">
+                    <h1 className="text-2xl font-bold text-[#191c1e]">
+                      Welcome, {currentUser?.fullName || 'University Academic Partner'}
+                    </h1>
+                    <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                      Verified Institution
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#58423d]">
+                    {currentUniversity?.name || 'Jharkhand University of Technology'} • Propose academic R&amp;D solutions to active government challenges.
                   </p>
                 </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setActiveView('challenges')}
-                    className="px-4 py-2 rounded-xl border border-[#e0e3e5] bg-white text-[#191c1e] text-xs font-bold hover:border-[#2F36ED] hover:text-[#2F36ED] transition-all cursor-pointer shadow-sm"
-                  >
-                    Explore Challenges Feed
-                  </button>
-                  <button
-                    onClick={() => setIsTeamModalOpen(true)}
-                    className="px-4 py-2 rounded-xl bg-[#F36F56] text-white text-xs font-bold hover:bg-[#a83824] transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base">add</span>
-                    Create Student R&amp;D Team
-                  </button>
-                </div>
+                <button
+                  onClick={() => setIsTeamModalOpen(true)}
+                  className="px-4 py-2.5 bg-[#2F36ED] text-white text-xs font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-sm flex items-center gap-2 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-base">group_add</span>
+                  Register R&amp;D Team
+                </button>
               </div>
 
-              {/* 4 Dynamic KPI Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* 4 KPI Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div
                   onClick={() => setActiveView('challenges')}
                   className="bg-white rounded-2xl border border-[#e0e3e5] p-5 shadow-sm hover:border-[#2F36ED] transition-all cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#58423d]">Available Challenges</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#58423d]">Open Challenges</span>
                     <div className="w-10 h-10 rounded-xl bg-[#2F36ED]/10 flex items-center justify-center text-[#2F36ED]">
                       <span className="material-symbols-outlined text-xl">warning</span>
                     </div>
@@ -588,17 +559,17 @@ function UniversityDashboardPage() {
                 </div>
 
                 <div
-                  onClick={() => setActiveView('departments')}
-                  className="bg-white rounded-2xl border border-[#e0e3e5] p-5 shadow-sm hover:border-[#2F36ED] transition-all cursor-pointer"
+                  onClick={() => setActiveView('accepted_projects')}
+                  className="bg-white rounded-2xl border border-[#e0e3e5] p-5 shadow-sm hover:border-emerald-500 transition-all cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#58423d]">Academic R&amp;D Teams</span>
-                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700">
-                      <span className="material-symbols-outlined text-xl">groups</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#58423d]">Accepted Projects</span>
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
+                      <span className="material-symbols-outlined text-xl">folder_special</span>
                     </div>
                   </div>
-                  <div className="text-3xl font-extrabold text-[#191c1e]">14</div>
-                  <div className="mt-2 text-xs font-semibold text-blue-700">Computer Science &amp; Engineering</div>
+                  <div className="text-3xl font-extrabold text-[#191c1e]">{acceptedProjects.length}</div>
+                  <div className="mt-2 text-xs font-semibold text-emerald-600">Govt Approved R&amp;D</div>
                 </div>
 
                 <div
@@ -606,13 +577,13 @@ function UniversityDashboardPage() {
                   className="bg-white rounded-2xl border border-[#e0e3e5] p-5 shadow-sm hover:border-[#F36F56] transition-all cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-[#58423d]">Solutions Completed</span>
-                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700">
-                      <span className="material-symbols-outlined text-xl">verified</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#58423d]">Industry CSR Offers</span>
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700">
+                      <span className="material-symbols-outlined text-xl">factory</span>
                     </div>
                   </div>
-                  <div className="text-3xl font-extrabold text-[#191c1e]">{resolvedCount}</div>
-                  <div className="mt-2 text-xs font-semibold text-emerald-600">Civic Deployments</div>
+                  <div className="text-3xl font-extrabold text-[#191c1e]">{receivedIndustryProposals.length}</div>
+                  <div className="mt-2 text-xs font-semibold text-blue-700">CSR Sponsorships</div>
                 </div>
               </div>
 
@@ -625,7 +596,7 @@ function UniversityDashboardPage() {
                   </div>
                   <button
                     onClick={() => setActiveView('challenges')}
-                    className="text-xs font-bold text-[#2F36ED] hover:underline"
+                    className="text-xs font-bold text-[#2F36ED] hover:underline cursor-pointer"
                   >
                     View All ({challenges.length}) →
                   </button>
@@ -665,15 +636,13 @@ function UniversityDashboardPage() {
             </div>
           )}
 
-          {/* DYNAMIC CHALLENGES FEED VIEW */}
+          {/* CHALLENGES FEED VIEW */}
           {activeView === 'challenges' && (
             <div className="max-w-[1280px] mx-auto space-y-6">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-bold text-[#191c1e]">Civic Challenges Feed</h1>
-                  <p className="text-sm text-[#58423d]">
-                    Click any challenge to open its full-page view, track progress milestones, and submit R&amp;D proposals.
-                  </p>
+                  <h1 className="text-2xl font-bold text-[#191c1e]">Active Civic Challenges</h1>
+                  <p className="text-sm text-[#58423d]">Real-time civic complaints logged by citizens awaiting University R&amp;D solutions</p>
                 </div>
                 <button
                   onClick={fetchChallenges}
@@ -682,195 +651,87 @@ function UniversityDashboardPage() {
                   <span className={`material-symbols-outlined text-sm ${loadingChallenges ? 'animate-spin' : ''}`}>
                     refresh
                   </span>
-                  Refresh API Challenges
+                  Refresh Feed
                 </button>
               </div>
 
-              {/* Search & Category Filter Bar */}
-              <div className="bg-white p-4 rounded-2xl border border-[#e0e3e5] flex flex-col md:flex-row gap-4 items-center justify-between shadow-sm">
-                <div className="relative flex-1 w-full">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#58423d] text-lg">
-                    search
-                  </span>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search challenge title, category, or description..."
-                    className="w-full pl-9 pr-4 py-2 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl text-xs text-[#191c1e] focus:border-[#2F36ED] outline-none"
-                  />
+              {loadingChallenges ? (
+                <div className="p-12 text-center text-[#58423d] bg-white border border-[#e0e3e5] rounded-2xl">
+                  <div className="w-8 h-8 border-3 border-[#2F36ED] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                  <p className="text-xs font-bold text-[#191c1e]">Loading civic challenges from MongoDB database...</p>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  {['All', 'Water & Sanitation', 'Roads & Infrastructure', 'Waste Management', 'Electrical & Lighting'].map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setCategoryFilter(cat)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${categoryFilter === cat
-                          ? 'bg-[#2F36ED] text-white'
-                          : 'bg-[#f8f9fb] border border-[#e0e3e5] text-[#58423d] hover:text-[#191c1e]'
-                        }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Challenges Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {loadingChallenges ? (
-                  <div className="col-span-2 p-12 text-center text-[#58423d]">
-                    <div className="w-8 h-8 border-3 border-[#2F36ED] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                    <p className="text-xs font-bold text-[#191c1e]">Fetching challenges from server API...</p>
-                  </div>
-                ) : filteredChallenges.length > 0 ? (
-                  filteredChallenges.map((item, idx) => (
+              ) : challenges.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {challenges.map((c, idx) => (
                     <div
-                      key={item._id || idx}
-                      onClick={() => openChallengeDetail(item)}
-                      className="bg-white border border-[#e0e3e5] rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:border-[#2F36ED] transition-all cursor-pointer space-y-4 group"
+                      key={c._id || idx}
+                      onClick={() => openChallengeDetail(c)}
+                      className="bg-white border border-[#e0e3e5] rounded-2xl p-6 shadow-sm hover:border-[#2F36ED] transition-all cursor-pointer flex flex-col justify-between space-y-4"
                     >
                       <div>
-                        <div className="flex justify-between items-start mb-3">
-                          <span className="bg-[#2F36ED]/10 text-[#2F36ED] px-3 py-1 rounded-lg text-xs font-bold uppercase">
-                            {item.category || 'Civic Issue'}
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="bg-[#2F36ED]/10 text-[#2F36ED] px-2.5 py-1 rounded text-[10px] font-extrabold uppercase">
+                            {c.category || 'Civic Issue'}
                           </span>
-                          <span className="text-xs font-semibold text-[#58423d]">{item.status || 'under_review'}</span>
+                          <span className="text-xs text-[#58423d] font-semibold">{c.status || 'under_review'}</span>
                         </div>
-                        <h3 className="text-base font-bold text-[#191c1e] group-hover:text-[#2F36ED] mb-2">{item.title}</h3>
-                        <p className="text-xs text-[#58423d] leading-relaxed line-clamp-3">{item.description}</p>
+                        <h3 className="text-base font-bold text-[#191c1e] mb-2">{c.title}</h3>
+                        <p className="text-xs text-[#58423d] leading-relaxed line-clamp-3">{c.description}</p>
                       </div>
 
-                      <div className="pt-4 border-t border-[#e0e3e5] flex items-center justify-between">
-                        <div className="text-xs text-[#58423d]">
-                          <span className="material-symbols-outlined text-sm align-middle mr-1 text-[#F36F56]">location_on</span>
-                          {item.location?.address || 'Ranchi, Jharkhand'}
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openChallengeDetail(item);
-                          }}
-                          className="px-4 py-2 bg-[#2F36ED] text-white rounded-xl text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm cursor-pointer"
-                        >
-                          Open Full Page →
+                      <div className="border-t border-[#e0e3e5] pt-3 flex justify-between items-center text-xs">
+                        <span className="text-[#58423d]">{c.location?.district || 'Ranchi'}, Jharkhand</span>
+                        <button className="bg-[#2F36ED] text-white px-3.5 py-1.5 rounded-xl font-bold text-xs hover:bg-blue-800 transition-colors shadow-xs">
+                          Propose R&amp;D Solution →
                         </button>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 p-12 text-center bg-white border border-[#e0e3e5] rounded-2xl text-[#58423d]">
-                    <span className="material-symbols-outlined text-4xl text-[#F36F56] mb-2">assignment_late</span>
-                    <p className="text-sm font-bold text-[#191c1e]">No challenges found matching filter</p>
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 text-center text-[#58423d] shadow-sm">
+                  No challenges available.
+                </div>
+              )}
             </div>
           )}
 
-          {/* DEDICATED CHALLENGE DETAIL FULL PAGE VIEW */}
+          {/* DEDICATED FULL-PAGE CHALLENGE DETAIL & PROPOSAL SUBMISSION VIEW */}
           {activeView === 'challenge_detail' && selectedChallenge && (
-            <div className="space-y-8 max-w-[1280px] mx-auto">
-              {/* Back Nav Header */}
-              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-[#e0e3e5] pb-4">
-                <div>
-                  <button
-                    onClick={() => setActiveView('challenges')}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-[#2F36ED] hover:underline mb-2 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base">arrow_back</span>
-                    Back to Challenges Directory
-                  </button>
-                  <h1 className="text-2xl md:text-3xl font-extrabold text-[#191c1e]">{selectedChallenge.title}</h1>
-                  <div className="flex items-center gap-3 mt-2">
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#2F36ED]/10 text-[#2F36ED]">
-                      {selectedChallenge.category || 'Civic Issue'}
-                    </span>
-                    <span className="text-xs text-[#58423d]">
-                      Reported ID: <strong className="text-[#191c1e]">{selectedChallenge._id || selectedChallenge.id}</strong>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold ${existingProposal || selectedChallenge.status === 'resolved'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
-                        : selectedChallenge.status === 'in_progress'
-                          ? 'bg-blue-50 text-blue-700 border border-blue-300'
-                          : 'bg-amber-50 text-amber-800 border border-amber-300'
-                      }`}
-                  >
-                    Status: {existingProposal ? 'Proposal Submitted' : selectedChallenge.status || 'under_review'}
-                  </span>
-                </div>
+            <div className="max-w-[1100px] mx-auto space-y-6">
+              {/* Top Navigation Back Button */}
+              <div className="flex items-center justify-between pb-4 border-b border-[#e0e3e5]">
+                <button
+                  onClick={() => setActiveView('challenges')}
+                  className="flex items-center gap-2 text-xs font-bold text-[#2F36ED] hover:underline bg-white px-3.5 py-2 rounded-xl border border-[#e0e3e5] cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">arrow_back</span>
+                  Back to Challenges Feed
+                </button>
+                <span className="text-xs text-[#58423d] font-semibold">
+                  Challenge ID: <span className="font-mono text-[#191c1e]">{selectedChallenge._id}</span>
+                </span>
               </div>
 
-              {/* PROJECT PROGRESS STEPPER TRACKER */}
-              <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm">
-                <h3 className="text-sm font-bold text-[#191c1e] mb-4">Project Milestone Progress</h3>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
-                  {/* Step 1 */}
-                  <div className="flex flex-col items-center text-center p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs mb-2">
-                      ✓
-                    </div>
-                    <span className="text-xs font-bold text-emerald-800">1. Citizen Logged</span>
-                    <span className="text-[11px] text-emerald-600 mt-0.5">Issue Verified</span>
-                  </div>
-
-                  {/* Step 2 */}
-                  <div className="flex flex-col items-center text-center p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs mb-2">
-                      ✓
-                    </div>
-                    <span className="text-xs font-bold text-emerald-800">2. Govt Triage</span>
-                    <span className="text-[11px] text-emerald-600 mt-0.5">Open for Proposals</span>
-                  </div>
-
-                  {/* Step 3 */}
-                  <div
-                    className={`flex flex-col items-center text-center p-3 rounded-xl border ${existingProposal
-                        ? 'bg-emerald-50 border-emerald-200'
-                        : 'bg-blue-50 border-blue-200 animate-pulse'
-                      }`}
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 ${existingProposal ? 'bg-emerald-600 text-white' : 'bg-[#2F36ED] text-white'
-                        }`}
-                    >
-                      {existingProposal ? '✓' : '3'}
-                    </div>
-                    <span className="text-xs font-bold text-[#191c1e]">3. University Proposal</span>
-                    <span className="text-[11px] text-[#58423d] mt-0.5">
-                      {existingProposal ? 'Proposal Submitted' : 'Submit R&D PDF'}
-                    </span>
-                  </div>
-
-                  {/* Step 4 */}
-                  <div className="flex flex-col items-center text-center p-3 rounded-xl border bg-[#f8f9fb] border-[#e0e3e5]">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 bg-[#e0e3e5] text-[#58423d]">
-                      4
-                    </div>
-                    <span className="text-xs font-bold text-[#191c1e]">4. Industry CSR Funding</span>
-                    <span className="text-[11px] text-[#58423d] mt-0.5">Grant Matching</span>
-                  </div>
-
-                  {/* Step 5 */}
-                  <div className="flex flex-col items-center text-center p-3 rounded-xl border bg-[#f8f9fb] border-[#e0e3e5]">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 bg-[#e0e3e5] text-[#58423d]">
-                      5
-                    </div>
-                    <span className="text-xs font-bold text-[#191c1e]">5. Deployed &amp; Resolved</span>
-                    <span className="text-[11px] text-[#58423d] mt-0.5">Civic Resolution</span>
-                  </div>
+              {/* HERO BANNER CARD */}
+              <div className="bg-white p-8 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="px-3 py-1 rounded bg-[#2F36ED]/10 text-[#2F36ED] text-xs font-extrabold uppercase">
+                    {selectedChallenge.category || 'Civic Infrastructure'}
+                  </span>
+                  <span className="text-xs text-[#58423d]">
+                    Logged: {new Date(selectedChallenge.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
                 </div>
+
+                <h1 className="text-2xl md:text-3xl font-extrabold text-[#191c1e]">
+                  {selectedChallenge.title}
+                </h1>
               </div>
 
               {/* MAIN CONTENT 2-COLUMN GRID */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* LEFT COLUMN (2/3 Width): Details, Media, Geolocation */}
+                {/* LEFT COLUMN: Details, Media, Geolocation */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* Detailed Description */}
                   <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-3">
@@ -882,313 +743,100 @@ function UniversityDashboardPage() {
                       {selectedChallenge.description}
                     </p>
                   </div>
-
-                  {/* MEDIA GALLERY */}
-                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
-                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#F36F56]">photo_library</span>
-                      Field Inspections &amp; Site Media
-                    </h3>
-
-                    {((selectedChallenge.photos?.length || 0) + (selectedChallenge.videos?.length || 0)) === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-[#58423d] bg-[#f8f9fb] rounded-xl border border-[#e0e3e5]">
-                        <span className="material-symbols-outlined text-4xl text-[#e0e3e5] mb-2">image_not_supported</span>
-                        <p className="text-xs font-semibold">No media uploaded by citizen</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {(selectedChallenge.photos || []).map((photo, idx) => (
-                          <div key={photo._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
-                            <a href={photo.url} target="_blank" rel="noopener noreferrer" className="block">
-                              <img
-                                src={photo.url}
-                                alt={`Citizen Photo ${idx + 1}`}
-                                className="w-full h-40 object-cover rounded-lg mb-2 hover:opacity-90 transition-opacity"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                              <div style={{ display: 'none' }} className="w-full h-40 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2">
-                                <span className="material-symbols-outlined text-4xl text-[#2F36ED] mb-1">broken_image</span>
-                                <span className="text-xs font-bold">Image failed to load</span>
-                              </div>
-                            </a>
-                            <span className="text-xs font-semibold text-[#191c1e]">Geotagged Photo Upload #{idx + 1}</span>
-                            <p className="text-[11px] text-[#58423d]">Submitted by Citizen</p>
-                          </div>
-                        ))}
-                        {(selectedChallenge.videos || []).map((video, idx) => (
-                          <div key={video._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
-                            <a href={video.url} target="_blank" rel="noopener noreferrer" className="block">
-                              <div className="w-full h-40 bg-slate-800 rounded-lg flex flex-col items-center justify-center mb-2 hover:opacity-90 transition-opacity">
-                                <span className="material-symbols-outlined text-4xl text-white mb-1">play_circle</span>
-                                <span className="text-xs font-bold text-white">Click to Play Video</span>
-                              </div>
-                            </a>
-                            <span className="text-xs font-semibold text-[#191c1e]">Field Data Log #{idx + 1}</span>
-                            <p className="text-[11px] text-[#58423d]">Submitted by Citizen</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-
-                  {/* LOCATION & GEOTAG */}
-                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
-                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#F36F56]">location_on</span>
-                      Location &amp; Jurisdiction
-                    </h3>
-
-                    <div className="bg-[#f8f9fb] p-4 rounded-xl border border-[#e0e3e5] grid grid-cols-2 gap-4 text-xs">
-                      <div>
-                        <span className="text-[#58423d]">Street Address:</span>
-                        <p className="font-bold text-[#191c1e]">{selectedChallenge.location?.address || 'Main Campus Road'}</p>
-                      </div>
-                      <div>
-                        <span className="text-[#58423d]">District &amp; State:</span>
-                        <p className="font-bold text-[#191c1e]">{selectedChallenge.location?.district || 'Ranchi'}, {selectedChallenge.location?.state || 'Jharkhand'}</p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
-                {/* RIGHT COLUMN (1/3 Width): SUBMITTED PROPOSAL CARD OR PROPOSAL FORM */}
+                {/* RIGHT COLUMN: PROPOSAL FORM */}
                 <div className="space-y-6">
-                  {existingProposal ? (
-                    <div className="bg-white p-6 rounded-2xl border border-emerald-300 bg-emerald-50/10 shadow-md space-y-5">
-                      <div className="flex items-center justify-between border-b border-[#e0e3e5] pb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-emerald-600 text-2xl">verified</span>
-                          <div>
-                            <h3 className="text-base font-bold text-[#191c1e]">Submitted R&amp;D Proposal</h3>
-                            <span className="text-[10px] text-[#58423d]">Saved in MongoDB Database</span>
-                          </div>
-                        </div>
-                        <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          {existingProposal.status || 'submitted'}
-                        </span>
+                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#2F36ED]">assignment_add</span>
+                      Submit University R&amp;D Proposal
+                    </h3>
+
+                    <form onSubmit={handleProposalSubmit} className="space-y-4 text-xs">
+                      <div>
+                        <label className="block font-bold text-[#191c1e] mb-1">Proposal Title *</label>
+                        <input
+                          type="text"
+                          required
+                          value={proposalForm.title}
+                          onChange={(e) => setProposalForm({ ...proposalForm, title: e.target.value })}
+                          className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
+                        />
                       </div>
 
-                      <div className="space-y-3 text-xs">
-                        <div>
-                          <span className="text-[#58423d] block font-medium mb-0.5">Proposal Title:</span>
-                          <h4 className="text-sm font-bold text-[#191c1e]">{existingProposal.title}</h4>
-                        </div>
-
-                        <div>
-                          <span className="text-[#58423d] block font-medium mb-1">Solution Approach &amp; Technical Scope:</span>
-                          <p className="text-xs text-[#191c1e] leading-relaxed bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5]">
-                            {existingProposal.solutionDescription}
-                          </p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 pt-1">
-                          <div className="bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5]">
-                            <span className="text-[#58423d] text-[11px] block">Estimated Cost:</span>
-                            <span className="text-sm font-extrabold text-[#2F36ED]">₹{existingProposal.estimatedCost?.toLocaleString() || '4,50,000'}</span>
-                          </div>
-                          <div className="bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5]">
-                            <span className="text-[#58423d] text-[11px] block">Timeline Duration:</span>
-                            <span className="text-sm font-extrabold text-[#191c1e]">{existingProposal.timelineMonths || 6} Months</span>
-                          </div>
-                        </div>
-
-                        {/* Faculty & Team Lead */}
-                        {existingProposal.facultyInformation?.length > 0 && (
-                          <div className="bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] space-y-1">
-                            <span className="text-[#58423d] text-[11px] block font-bold">Faculty Lead:</span>
-                            <span className="text-xs font-bold text-[#191c1e]">
-                              {existingProposal.facultyInformation[0].name} ({existingProposal.facultyInformation[0].designation || 'Faculty Advisor'})
-                            </span>
-                            <span className="text-[11px] text-[#58423d] block">{existingProposal.facultyInformation[0].department}</span>
-                          </div>
-                        )}
-
-                        {existingProposal.teamInformation?.length > 0 && (
-                          <div className="bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] space-y-1">
-                            <span className="text-[#58423d] text-[11px] block font-bold">Student Team Lead:</span>
-                            <span className="text-xs font-bold text-[#191c1e]">
-                              {existingProposal.teamInformation[0].name} ({existingProposal.teamInformation[0].role || 'Team Lead'})
-                            </span>
-                            <span className="text-[11px] text-[#58423d] block">{existingProposal.teamInformation[0].email}</span>
-                          </div>
-                        )}
-
-                        {/* Attached PDF document */}
-                        <div className="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-200 flex items-center justify-between">
-                          <div className="flex items-center gap-2.5 overflow-hidden">
-                            <span className="material-symbols-outlined text-2xl text-emerald-600">picture_as_pdf</span>
-                            <div className="truncate">
-                              <p className="text-xs font-bold text-[#191c1e] truncate">
-                                {existingProposal.proposalPdf?.originalName || 'R&D_Proposal_Document.pdf'}
-                              </p>
-                              <span className="text-[10px] text-emerald-700 font-semibold">Attached Technical PDF</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 text-[11px] text-[#58423d] text-center border-t border-[#e0e3e5]">
-                          Submitted to Government Admin on {existingProposal.createdAt ? new Date(existingProposal.createdAt).toLocaleDateString() : 'Today'}
-                        </div>
+                      <div>
+                        <label className="block font-bold text-[#191c1e] mb-1">Solution Description &amp; Methodology *</label>
+                        <textarea
+                          rows={4}
+                          required
+                          value={proposalForm.solutionDescription}
+                          onChange={(e) => setProposalForm({ ...proposalForm, solutionDescription: e.target.value })}
+                          className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none resize-none"
+                        ></textarea>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
-                      <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#2F36ED]">upload_file</span>
-                        Submit University R&amp;D Proposal
-                      </h3>
 
-                      <form onSubmit={handleProposalSubmit} className="space-y-4 text-xs">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block font-bold text-[#191c1e] mb-1">Proposal Title *</label>
+                          <label className="block font-bold text-[#191c1e] mb-1">Estimated Cost (₹) *</label>
                           <input
-                            type="text"
+                            type="number"
                             required
-                            value={proposalForm.title}
-                            onChange={(e) => setProposalForm({ ...proposalForm, title: e.target.value })}
-                            placeholder="e.g. IoT Sensor Solution for Water Filtration"
-                            className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none focus:border-[#2F36ED]"
+                            min={10000}
+                            value={proposalForm.estimatedCost}
+                            onChange={(e) => setProposalForm({ ...proposalForm, estimatedCost: e.target.value })}
+                            className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
                           />
                         </div>
 
                         <div>
-                          <label className="block font-bold text-[#191c1e] mb-1">Technical Solution Description *</label>
-                          <textarea
+                          <label className="block font-bold text-[#191c1e] mb-1">Timeline (Months) *</label>
+                          <input
+                            type="number"
                             required
-                            rows={4}
-                            value={proposalForm.solutionDescription}
-                            onChange={(e) => setProposalForm({ ...proposalForm, solutionDescription: e.target.value })}
-                            placeholder="Outline technical methodology, architecture, and expected outcomes..."
-                            className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none focus:border-[#2F36ED]"
+                            min={1}
+                            max={36}
+                            value={proposalForm.timelineMonths}
+                            onChange={(e) => setProposalForm({ ...proposalForm, timelineMonths: e.target.value })}
+                            className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
                           />
                         </div>
+                      </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block font-bold text-[#191c1e] mb-1">Estimated Cost (₹) *</label>
-                            <input
-                              type="number"
-                              required
-                              min={0}
-                              value={proposalForm.estimatedCost}
-                              onChange={(e) => setProposalForm({ ...proposalForm, estimatedCost: e.target.value })}
-                              className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block font-bold text-[#191c1e] mb-1">Timeline (Months) *</label>
-                            <input
-                              type="number"
-                              required
-                              min={1}
-                              max={36}
-                              value={proposalForm.timelineMonths}
-                              onChange={(e) => setProposalForm({ ...proposalForm, timelineMonths: e.target.value })}
-                              className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Faculty Information Fields */}
-                        <div className="p-3 bg-[#f8f9fb] rounded-xl border border-[#e0e3e5] space-y-2">
-                          <span className="font-bold text-[#191c1e] block text-xs">Faculty Lead Information</span>
-                          <div>
-                            <label className="block text-[11px] text-[#58423d] mb-0.5">Faculty Name</label>
-                            <input
-                              type="text"
-                              required
-                              value={proposalForm.facultyName}
-                              onChange={(e) => setProposalForm({ ...proposalForm, facultyName: e.target.value })}
-                              className="w-full p-2 bg-white border border-[#e0e3e5] rounded-lg text-xs outline-none"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
+                      {/* PDF UPLOAD FILE INPUT ZONE */}
+                      <div>
+                        <label className="block font-bold text-[#191c1e] mb-1">Attach Proposal PDF Document</label>
+                        <div className="border-2 border-dashed border-[#e0e3e5] hover:border-[#2F36ED] rounded-xl p-4 text-center bg-[#f8f9fb] transition-all cursor-pointer relative">
+                          <input
+                            type="file"
+                            accept=".pdf"
+                            onChange={(e) => setProposalForm({ ...proposalForm, pdfFile: e.target.files[0] })}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          <span className="material-symbols-outlined text-3xl text-[#2F36ED] mb-1">picture_as_pdf</span>
+                          {proposalForm.pdfFile ? (
+                            <p className="text-xs font-bold text-emerald-600 truncate">{proposalForm.pdfFile.name}</p>
+                          ) : (
                             <div>
-                              <label className="block text-[11px] text-[#58423d] mb-0.5">Designation</label>
-                              <input
-                                type="text"
-                                value={proposalForm.facultyDesignation}
-                                onChange={(e) => setProposalForm({ ...proposalForm, facultyDesignation: e.target.value })}
-                                className="w-full p-2 bg-white border border-[#e0e3e5] rounded-lg text-xs outline-none"
-                              />
+                              <p className="text-xs font-bold text-[#191c1e]">Upload Technical Proposal PDF</p>
+                              <p className="text-[10px] text-[#58423d]">Click or drag PDF file here (Max 25MB)</p>
                             </div>
-                            <div>
-                              <label className="block text-[11px] text-[#58423d] mb-0.5">Department</label>
-                              <input
-                                type="text"
-                                value={proposalForm.facultyDepartment}
-                                onChange={(e) => setProposalForm({ ...proposalForm, facultyDepartment: e.target.value })}
-                                className="w-full p-2 bg-white border border-[#e0e3e5] rounded-lg text-xs outline-none"
-                              />
-                            </div>
-                          </div>
+                          )}
                         </div>
+                      </div>
 
-                        {/* Team Information Fields */}
-                        <div className="p-3 bg-[#f8f9fb] rounded-xl border border-[#e0e3e5] space-y-2">
-                          <span className="font-bold text-[#191c1e] block text-xs">Student Team Lead Information</span>
-                          <div>
-                            <label className="block text-[11px] text-[#58423d] mb-0.5">Student Lead Name</label>
-                            <input
-                              type="text"
-                              required
-                              value={proposalForm.leadStudentName}
-                              onChange={(e) => setProposalForm({ ...proposalForm, leadStudentName: e.target.value })}
-                              className="w-full p-2 bg-white border border-[#e0e3e5] rounded-lg text-xs outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[11px] text-[#58423d] mb-0.5">Student Email</label>
-                            <input
-                              type="email"
-                              required
-                              value={proposalForm.leadStudentEmail}
-                              onChange={(e) => setProposalForm({ ...proposalForm, leadStudentEmail: e.target.value })}
-                              className="w-full p-2 bg-white border border-[#e0e3e5] rounded-lg text-xs outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        {/* PDF UPLOAD FILE INPUT ZONE */}
-                        <div>
-                          <label className="block font-bold text-[#191c1e] mb-1">Attach Proposal PDF Document</label>
-                          <div className="border-2 border-dashed border-[#e0e3e5] hover:border-[#2F36ED] rounded-xl p-4 text-center bg-[#f8f9fb] transition-all cursor-pointer relative">
-                            <input
-                              type="file"
-                              accept=".pdf"
-                              onChange={(e) => setProposalForm({ ...proposalForm, pdfFile: e.target.files[0] })}
-                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                            <span className="material-symbols-outlined text-3xl text-[#2F36ED] mb-1">picture_as_pdf</span>
-                            {proposalForm.pdfFile ? (
-                              <p className="text-xs font-bold text-emerald-600 truncate">{proposalForm.pdfFile.name}</p>
-                            ) : (
-                              <div>
-                                <p className="text-xs font-bold text-[#191c1e]">Upload Technical Proposal PDF</p>
-                                <p className="text-[10px] text-[#58423d]">Click or drag PDF file here (Max 25MB)</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <button
-                          type="submit"
-                          disabled={submittingProposal}
-                          className="w-full py-3 bg-[#2F36ED] text-white rounded-xl font-bold text-xs hover:bg-blue-800 transition-colors shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
-                        >
-                          <span className={`material-symbols-outlined text-sm ${submittingProposal ? 'animate-spin' : ''}`}>
-                            {submittingProposal ? 'refresh' : 'send'}
-                          </span>
-                          {submittingProposal ? 'Saving to Database...' : 'Submit R&D Proposal to Database'}
-                        </button>
-                      </form>
-                    </div>
-                  )}
+                      <button
+                        type="submit"
+                        disabled={submittingProposal}
+                        className="w-full py-3 bg-[#2F36ED] text-white rounded-xl font-bold text-xs hover:bg-blue-800 transition-colors shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        <span className={`material-symbols-outlined text-sm ${submittingProposal ? 'animate-spin' : ''}`}>
+                          {submittingProposal ? 'refresh' : 'send'}
+                        </span>
+                        {submittingProposal ? 'Saving to Database...' : 'Submit R&D Proposal to Database'}
+                      </button>
+                    </form>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1260,6 +908,295 @@ function UniversityDashboardPage() {
             </div>
           )}
 
+          {/* ACCEPTED PROJECTS VIEW */}
+          {activeView === 'accepted_projects' && (
+            <div className="max-w-[1280px] mx-auto space-y-6 animate-in fade-in duration-200">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-[#191c1e]">Govt-Approved R&amp;D Projects</h1>
+                  <p className="text-sm text-[#58423d]">
+                    Challenges &amp; projects where your University R&amp;D proposal has been accepted by Government, open for Industry CSR funding
+                  </p>
+                </div>
+                <button
+                  onClick={fetchProposals}
+                  className="px-4 py-2 text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 rounded-xl hover:bg-[#2F36ED]/20 flex items-center gap-1 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">refresh</span> Refresh Projects
+                </button>
+              </div>
+
+              {acceptedProjects.length === 0 ? (
+                <div className="p-8 bg-white border border-[#e0e3e5] rounded-2xl text-center text-xs text-[#58423d] space-y-2">
+                  <span className="material-symbols-outlined text-4xl text-[#2F36ED]">folder_special</span>
+                  <p className="font-bold text-[#191c1e] text-sm">No Accepted Projects Yet</p>
+                  <p className="max-w-md mx-auto">When the Government accepts your University proposal, the project will automatically appear here as an active R&amp;D Project open for Industry CSR offers.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {acceptedProjects.map((proj) => {
+                    const projTitle = proj.title || proj.issueId?.title || 'Accepted Civic R&D Project';
+                    const projDesc = proj.solutionDescription || proj.description || proj.issueId?.description || 'Government-approved university R&D project.';
+                    const category = proj.category || proj.issueId?.category || 'R&D Innovation';
+                    const locationStr = proj.issueId?.location?.district || proj.location || 'Jharkhand';
+                    const budgetStr = proj.estimatedCost ? `₹${Number(proj.estimatedCost).toLocaleString('en-IN')}` : '₹18.5 Lakhs';
+
+                    // Count matching industry CSR proposals
+                    const matchingIndustryCount = receivedIndustryProposals.filter(
+                      p => (p.projectId?._id || p.projectId) === (proj._id || proj.id) || (p.issueId?._id || p.issueId) === (proj.issueId?._id || proj.issueId || proj._id)
+                    ).length;
+
+                    return (
+                      <div
+                        key={proj._id || proj.id}
+                        onClick={() => {
+                          setSelectedProjectDetail(proj);
+                          setActiveView('project_detail');
+                        }}
+                        className="bg-white border border-[#e0e3e5] rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-[#2F36ED] transition-all space-y-4 cursor-pointer group"
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-3 gap-2">
+                            <span className="text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 px-2.5 py-1 rounded-md uppercase tracking-wider">{category}</span>
+                            <span className="text-xs font-extrabold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full border border-emerald-300 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-sm">verified</span> GOVT APPROVED
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-bold text-[#191c1e] mb-2 group-hover:text-[#2F36ED] transition-colors">{projTitle}</h3>
+                          <p className="text-xs text-[#58423d] line-clamp-3 leading-relaxed">{projDesc}</p>
+                        </div>
+
+                        <div className="bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-[#58423d] text-[10px] block font-semibold">Approved R&amp;D Budget</span>
+                            <span className="font-extrabold text-emerald-600">{budgetStr}</span>
+                          </div>
+                          <div>
+                            <span className="text-[#58423d] text-[10px] block font-semibold">Industry CSR Offers</span>
+                            <span className="font-extrabold text-[#2F36ED]">{matchingIndustryCount} Offer(s) Received</span>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-[#e0e3e5] pt-3 flex justify-between items-center text-xs">
+                          <span className="text-[#58423d] flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm text-[#F36F56]">location_on</span> {locationStr}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedProjectDetail(proj);
+                              setActiveView('project_detail');
+                            }}
+                            className="bg-[#2F36ED] text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-800 transition-all cursor-pointer shadow-xs flex items-center gap-1"
+                          >
+                            <span>View Project &amp; CSR Proposals</span>
+                            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* DEDICATED ACCEPTED PROJECT DETAIL VIEW */}
+          {activeView === 'project_detail' && selectedProjectDetail && (() => {
+            const proj = selectedProjectDetail;
+            const projTitle = proj.title || proj.issueId?.title || 'Accepted Civic R&D Project';
+            const projDesc = proj.solutionDescription || proj.description || proj.issueId?.description || 'Government-approved university R&D project.';
+            const category = proj.category || proj.issueId?.category || 'R&D Innovation';
+            const locationStr = proj.issueId?.location?.district || proj.issueId?.location?.address || proj.location || 'Ranchi, Jharkhand';
+            const budgetStr = proj.estimatedCost ? `₹${Number(proj.estimatedCost).toLocaleString('en-IN')}` : '₹18.5 Lakhs';
+
+            // Filter industry proposals submitted for this project / issue
+            const matchingIndustryProposals = receivedIndustryProposals.filter(
+              p => (p.projectId?._id || p.projectId) === (proj._id || proj.id) || (p.issueId?._id || p.issueId) === (proj.issueId?._id || proj.issueId || proj._id)
+            );
+
+            return (
+              <div className="max-w-[1100px] mx-auto space-y-8 animate-in fade-in duration-200">
+                {/* Back Header Button */}
+                <div className="flex items-center justify-between pb-4 border-b border-[#e0e3e5]">
+                  <button
+                    onClick={() => setActiveView('accepted_projects')}
+                    className="inline-flex items-center gap-2 text-xs font-bold text-[#2F36ED] bg-white px-4 py-2 rounded-xl border border-[#e0e3e5] hover:border-[#2F36ED] transition-all cursor-pointer shadow-xs"
+                  >
+                    <span className="material-symbols-outlined text-base">arrow_back</span>
+                    Back to Accepted Projects
+                  </button>
+                  <span className="px-3.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-extrabold rounded-full border border-emerald-300 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm">verified</span>
+                    Govt Approved &amp; Active R&amp;D Deployment
+                  </span>
+                </div>
+
+                {/* Hero Banner Card */}
+                <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 shadow-sm space-y-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span className="px-3 py-1 rounded-md text-xs font-extrabold uppercase tracking-wider bg-[#2F36ED]/10 text-[#2F36ED]">
+                      {category}
+                    </span>
+                    <span className="text-xs text-[#58423d] font-semibold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-base text-[#F36F56]">location_on</span>
+                      Location: {locationStr}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-extrabold text-[#191c1e] leading-tight mb-3">
+                      {projTitle}
+                    </h1>
+                    <p className="text-sm text-[#58423d] leading-relaxed">
+                      {projDesc}
+                    </p>
+                  </div>
+
+                  {/* Key Specifications Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs pt-4 border-t border-[#e0e3e5]">
+                    <div className="bg-[#f8f9fb] p-3.5 rounded-xl border border-[#e0e3e5]">
+                      <span className="text-[10px] font-bold text-[#58423d] uppercase block">Approved R&amp;D Budget</span>
+                      <span className="font-extrabold text-emerald-600 text-sm">{budgetStr}</span>
+                    </div>
+                    <div className="bg-[#f8f9fb] p-3.5 rounded-xl border border-[#e0e3e5]">
+                      <span className="text-[10px] font-bold text-[#58423d] uppercase block">R&amp;D Timeline</span>
+                      <span className="font-extrabold text-[#191c1e]">{proj.timelineMonths || 6} Months</span>
+                    </div>
+                    <div className="bg-[#f8f9fb] p-3.5 rounded-xl border border-[#e0e3e5]">
+                      <span className="text-[10px] font-bold text-[#58423d] uppercase block">Faculty Lead</span>
+                      <span className="font-extrabold text-[#191c1e]">{proj.facultyName || 'Dr. Rajesh Verma'}</span>
+                    </div>
+                    <div className="bg-[#f8f9fb] p-3.5 rounded-xl border border-[#e0e3e5]">
+                      <span className="text-[10px] font-bold text-[#58423d] uppercase block">Department</span>
+                      <span className="font-extrabold text-[#2F36ED]">{proj.facultyDepartment || 'Engineering'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* INDUSTRY CSR FUNDING & SUPPORT PROPOSALS SECTION */}
+                <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 shadow-sm space-y-6">
+                  <div className="flex justify-between items-center border-b border-[#e0e3e5] pb-4">
+                    <div>
+                      <span className="text-xs font-extrabold text-[#F36F56] uppercase tracking-wider block mb-1">
+                        CORPORATE SPONSORSHIPS &amp; GRANTS
+                      </span>
+                      <h3 className="text-xl font-extrabold text-[#191c1e]">
+                        Received Industry CSR Proposals ({matchingIndustryProposals.length})
+                      </h3>
+                      <p className="text-xs text-[#58423d] mt-1">
+                        Corporate CSR funding, specialized equipment, and engineering offers submitted specifically for this R&amp;D project
+                      </p>
+                    </div>
+                    <button
+                      onClick={fetchReceivedIndustryProposals}
+                      className="px-3.5 py-1.5 text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 rounded-xl hover:bg-[#2F36ED]/20 flex items-center gap-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">refresh</span> Refresh Offers
+                    </button>
+                  </div>
+
+                  {matchingIndustryProposals.length === 0 ? (
+                    <div className="p-8 bg-[#f8f9fb] border border-[#e0e3e5] rounded-2xl text-center text-xs text-[#58423d] space-y-2">
+                      <span className="material-symbols-outlined text-4xl text-[#2F36ED]">factory</span>
+                      <p className="font-bold text-[#191c1e] text-sm">No Industry CSR Proposals Submitted Yet</p>
+                      <p className="max-w-md mx-auto leading-relaxed">
+                        Corporate partners can discover this project in their Industry Portal. When a company submits a CSR grant or equipment offer, it will appear here for your review and acceptance.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {matchingIndustryProposals.map((ip) => {
+                        const isAccepted = ip.status === 'accepted';
+                        const isRejected = ip.status === 'rejected';
+                        const companyName = ip.industryId?.companyName || ip.industryId?.name || 'Corporate CSR Partner';
+
+                        return (
+                          <div
+                            key={ip._id}
+                            className={`p-6 rounded-2xl border ${
+                              isAccepted ? 'border-emerald-400 bg-emerald-50/20 ring-1 ring-emerald-300' :
+                              isRejected ? 'border-red-200 bg-red-50/10' :
+                              'border-[#e0e3e5] bg-[#f8f9fb]'
+                            } space-y-4 shadow-2xs`}
+                          >
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-[#e0e3e5] pb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-[#F36F56]/10 text-[#F36F56] flex items-center justify-center font-bold text-sm">
+                                  <span className="material-symbols-outlined">factory</span>
+                                </div>
+                                <div>
+                                  <h4 className="text-base font-extrabold text-[#191c1e]">{ip.title}</h4>
+                                  <span className="text-xs font-bold text-[#2F36ED]">{companyName}</span>
+                                </div>
+                              </div>
+
+                              <span className={`px-3 py-1 rounded-full text-xs font-extrabold uppercase ${
+                                isAccepted ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                                isRejected ? 'bg-red-100 text-red-700' :
+                                'bg-blue-100 text-blue-800 border border-blue-200'
+                              }`}>
+                                {isAccepted ? 'CSR OFFER ACCEPTED' : isRejected ? 'DECLINED' : 'SUBMITTED OFFER'}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-[#58423d] bg-white p-4 rounded-xl border border-[#e0e3e5] leading-relaxed">
+                              {ip.description}
+                            </p>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                              <div className="bg-white p-3 rounded-xl border border-[#e0e3e5]">
+                                <span className="text-[#58423d] text-[10px] font-bold uppercase block">Offered CSR Value</span>
+                                <span className="font-extrabold text-emerald-600 text-sm">₹{Number(ip.estimatedValue || 1500000).toLocaleString('en-IN')}</span>
+                              </div>
+                              <div className="bg-white p-3 rounded-xl border border-[#e0e3e5]">
+                                <span className="text-[#58423d] text-[10px] font-bold uppercase block">Offering Type</span>
+                                <span className="font-extrabold text-[#191c1e] capitalize">{ip.offeringType || 'Funding'}</span>
+                              </div>
+                              <div className="bg-white p-3 rounded-xl border border-[#e0e3e5]">
+                                <span className="text-[#58423d] text-[10px] font-bold uppercase block">Timeline</span>
+                                <span className="font-extrabold text-[#191c1e]">{ip.timeline || '6 Months'}</span>
+                              </div>
+                            </div>
+
+                            {/* Action buttons */}
+                            {!isAccepted && !isRejected && (
+                              <div className="flex gap-3 pt-2">
+                                <button
+                                  onClick={() => handleReviewIndustryProposal(ip._id, 'accepted', ip.title)}
+                                  disabled={reviewingProposalId === ip._id}
+                                  className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+                                >
+                                  <span className="material-symbols-outlined text-base">check_circle</span>
+                                  Accept Industry CSR Offer
+                                </button>
+                                <button
+                                  onClick={() => handleReviewIndustryProposal(ip._id, 'rejected', ip.title)}
+                                  disabled={reviewingProposalId === ip._id}
+                                  className="py-2.5 px-5 bg-white border border-red-300 text-red-600 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors cursor-pointer flex items-center gap-1.5"
+                                >
+                                  <span className="material-symbols-outlined text-base">cancel</span>
+                                  Decline
+                                </button>
+                              </div>
+                            )}
+
+                            {isAccepted && (
+                              <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold border border-emerald-300 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-lg text-emerald-600">verified</span>
+                                <span>CSR Offer Accepted! Partnership active for ground R&amp;D deployment.</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* INDUSTRY CSR PROPOSALS VIEW */}
           {activeView === 'industry_proposals' && (
             <div className="max-w-[1280px] mx-auto space-y-6">
@@ -1287,97 +1224,79 @@ function UniversityDashboardPage() {
                   <p className="text-xs font-bold text-[#191c1e]">Fetching received industry proposals...</p>
                 </div>
               ) : receivedIndustryProposals.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {receivedIndustryProposals.map((prop) => (
-                    <div
-                      key={prop._id}
-                      className={`bg-white border ${
-                        prop.status === 'accepted' ? 'border-emerald-400 bg-emerald-50/10' :
-                        prop.status === 'rejected' ? 'border-red-200 bg-red-50/10' :
-                        'border-[#e0e3e5]'
-                      } rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-4 hover:shadow-md transition-all`}
-                    >
-                      <div>
-                        <div className="flex justify-between items-start mb-2 gap-2">
-                          <h3 className="text-base font-bold text-[#191c1e] flex-1">{prop.title}</h3>
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase shrink-0 ${
-                            prop.status === 'accepted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
-                            prop.status === 'rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
-                            'bg-blue-100 text-blue-700 border border-blue-200'
+                <div className="space-y-4">
+                  {receivedIndustryProposals.map((prop, idx) => {
+                    const isAccepted = prop.status === 'accepted';
+                    const isRejected = prop.status === 'rejected';
+
+                    return (
+                      <div
+                        key={prop._id || idx}
+                        className={`bg-white border ${
+                          isAccepted ? 'border-emerald-300 bg-emerald-50/10' :
+                          isRejected ? 'border-red-200 bg-red-50/10' :
+                          'border-[#e0e3e5]'
+                        } rounded-2xl p-6 shadow-sm space-y-4 hover:border-[#2F36ED] transition-all`}
+                      >
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="bg-[#F36F56]/10 text-[#F36F56] px-2.5 py-0.5 rounded text-[10px] font-bold">
+                                {prop.industryId?.companyName || 'Corporate Partner'}
+                              </span>
+                              <span className="text-xs text-[#58423d]">
+                                Type: <strong className="capitalize">{prop.offeringType || 'Funding'}</strong>
+                              </span>
+                              <span className="text-xs text-[#58423d]">
+                                Value: <strong>₹{prop.estimatedValue?.toLocaleString() || '15,000,000'}</strong>
+                              </span>
+                            </div>
+                            <h3 className="text-base font-bold text-[#191c1e]">{prop.title}</h3>
+                          </div>
+
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            isAccepted ? 'bg-emerald-100 text-emerald-800' :
+                            isRejected ? 'bg-red-100 text-red-700' :
+                            'bg-amber-100 text-amber-800'
                           }`}>
-                            {prop.status}
+                            {prop.status || 'submitted'}
                           </span>
                         </div>
 
-                        <p className="text-xs text-[#2F36ED] font-semibold mb-2 flex items-center gap-1">
-                          <span className="material-symbols-outlined text-sm">factory</span>
-                          Industry Partner: <strong>{prop.industryId?.companyName || 'Corporate Partner'}</strong>
-                        </p>
-
-                        <p className="text-xs text-[#58423d] bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] leading-relaxed line-clamp-3">
+                        <p className="text-xs text-[#58423d] bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] leading-relaxed">
                           {prop.description}
                         </p>
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-3 text-xs border-t border-[#e0e3e5] pt-3">
-                        <div className="bg-[#f8f9fb] p-2.5 rounded-xl border border-[#e0e3e5]">
-                          <span className="text-[#58423d] block text-[10px]">Offered CSR Budget</span>
-                          <span className="font-extrabold text-emerald-600">₹{prop.estimatedValue?.toLocaleString('en-IN') || '—'}</span>
-                        </div>
-                        <div className="bg-[#f8f9fb] p-2.5 rounded-xl border border-[#e0e3e5]">
-                          <span className="text-[#58423d] block text-[10px]">Offering Type</span>
-                          <span className="font-extrabold text-[#191c1e] capitalize">{prop.offeringType || 'Funding'}</span>
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      {prop.status !== 'accepted' && (
-                        <div className="flex gap-3 pt-2">
-                          <button
-                            onClick={() => handleReviewIndustryProposal(prop._id, 'rejected', prop.title)}
-                            disabled={reviewingProposalId === prop._id}
-                            className="flex-1 py-2.5 border border-[#e0e3e5] hover:bg-red-50 hover:text-red-700 rounded-xl text-xs font-bold text-[#58423d] transition-colors cursor-pointer disabled:opacity-50"
-                          >
-                            Decline Proposal
-                          </button>
-                          <button
-                            onClick={() => handleReviewIndustryProposal(prop._id, 'accepted', prop.title)}
-                            disabled={reviewingProposalId === prop._id}
-                            className="flex-1 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
-                          >
-                            {reviewingProposalId === prop._id ? (
-                              <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Accepting...</>
-                            ) : (
-                              <><span className="material-symbols-outlined text-sm">check_circle</span> Accept Proposal</>
-                            )}
-                          </button>
-                        </div>
-                      )}
-
-                      {prop.status === 'accepted' && (
-                        <div className="flex items-center justify-between pt-1">
-                          <div className="flex items-center gap-2 text-xs text-emerald-700 font-bold">
-                            <span className="material-symbols-outlined text-base text-emerald-600">verified</span>
-                            Proposal Accepted — CSR Funding &amp; Support Active!
+                        {!isAccepted && !isRejected && (
+                          <div className="flex items-center gap-3 pt-2">
+                            <button
+                              onClick={() => handleReviewIndustryProposal(prop._id, 'accepted', prop.title)}
+                              disabled={reviewingProposalId === prop._id}
+                              className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-sm">check_circle</span>
+                              Accept CSR Grant &amp; Support
+                            </button>
+                            <button
+                              onClick={() => handleReviewIndustryProposal(prop._id, 'rejected', prop.title)}
+                              disabled={reviewingProposalId === prop._id}
+                              className="px-4 py-2 border border-red-300 text-red-600 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors cursor-pointer flex items-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-sm">cancel</span>
+                              Decline
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleReviewIndustryProposal(prop._id, 'submitted', prop.title)}
-                            className="text-[11px] text-[#58423d] hover:text-red-600 font-semibold underline cursor-pointer"
-                          >
-                            Re-evaluate
-                          </button>
-                        </div>
-                      )}
-
-                    </div>
-                  ))}
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 text-center text-[#58423d] shadow-sm space-y-2">
+                <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 text-center text-[#58423d] shadow-sm">
                   <span className="material-symbols-outlined text-5xl text-[#2F36ED] mb-3">factory</span>
                   <h3 className="text-lg font-bold text-[#191c1e] mb-1">No Industry CSR Proposals Received Yet</h3>
                   <p className="text-xs text-[#58423d] max-w-md mx-auto">
-                    When Corporate Industry Partners submit CSR funding and technology support proposals for your government-approved projects, they will appear here for your review.
+                    Corporate Industry partners will be able to review your accepted R&amp;D projects and offer CSR funding &amp; equipment support!
                   </p>
                 </div>
               )}
@@ -1389,86 +1308,123 @@ function UniversityDashboardPage() {
             <div className="max-w-[1280px] mx-auto space-y-6">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-bold text-[#191c1e]">University R&amp;D Teams</h1>
-                  <p className="text-sm text-[#58423d]">Manage academic departments and student innovation labs</p>
+                  <h1 className="text-2xl font-bold text-[#191c1e]">Academic R&amp;D Departments &amp; Student Teams</h1>
+                  <p className="text-sm text-[#58423d]">University faculties and registered student innovation cells</p>
                 </div>
                 <button
                   onClick={() => setIsTeamModalOpen(true)}
-                  className="px-4 py-2 bg-[#2F36ED] text-white rounded-xl text-xs font-bold hover:bg-blue-800 transition-colors shadow-sm flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#2F36ED] text-white text-xs font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-base">add</span>
-                  Create Student Team
+                  <span className="material-symbols-outlined text-sm">add</span> Register New Team
                 </button>
               </div>
 
-              <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 text-center text-[#58423d] shadow-sm">
-                <span className="material-symbols-outlined text-5xl text-[#2F36ED] mb-3">groups</span>
-                <h3 className="text-lg font-bold text-[#191c1e] mb-1">Academic R&amp;D Directory</h3>
-                <p className="text-xs text-[#58423d] max-w-md mx-auto">
-                  Computer Science, Electrical, and Environmental Engineering R&amp;D Labs linked.
-                </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { name: 'Dept. of Computer Science & Engineering', teams: 4, faculty: 'Dr. Rajesh Verma', projects: 3 },
+                  { name: 'Dept. of Environmental Engineering', teams: 3, faculty: 'Dr. Ananya Roy', projects: 2 },
+                  { name: 'Dept. of Electrical & Renewable Energy', teams: 5, faculty: 'Prof. Suresh Kumar', projects: 4 },
+                  { name: 'Dept. of Water Resources & Sanitation', teams: 2, faculty: 'Dr. Meera Patel', projects: 2 }
+                ].map((dept, i) => (
+                  <div key={i} className="bg-white p-5 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#2F36ED]/10 text-[#2F36ED] flex items-center justify-center font-bold">
+                      <span className="material-symbols-outlined text-xl">account_balance</span>
+                    </div>
+                    <h3 className="text-sm font-bold text-[#191c1e]">{dept.name}</h3>
+                    <p className="text-xs text-[#58423d]">Faculty Head: <strong>{dept.faculty}</strong></p>
+                    <div className="flex justify-between text-xs pt-2 border-t border-[#e0e3e5]">
+                      <span>{dept.teams} Registered Teams</span>
+                      <span className="font-bold text-[#2F36ED]">{dept.projects} Active R&amp;D Projects</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* R&D GRANTS VIEW */}
+          {activeView === 'analytics' && (
+            <div className="max-w-[1280px] mx-auto space-y-6">
+              <h1 className="text-2xl font-bold text-[#191c1e]">R&amp;D Grants &amp; Financial Analytics</h1>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-2">
+                  <span className="text-xs font-bold text-[#58423d] uppercase tracking-wider block">Total Govt Grant Budget</span>
+                  <div className="text-3xl font-black text-emerald-600">₹42,50,000</div>
+                  <p className="text-xs text-[#58423d]">Sanctioned across 4 accepted civic projects</p>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-2">
+                  <span className="text-xs font-bold text-[#58423d] uppercase tracking-wider block">Total Industry CSR Funding</span>
+                  <div className="text-3xl font-black text-[#2F36ED]">₹40,00,000</div>
+                  <p className="text-xs text-[#58423d]">Offered by corporate partners</p>
+                </div>
+                <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-2">
+                  <span className="text-xs font-bold text-[#58423d] uppercase tracking-wider block">Grant Disbursement Rate</span>
+                  <div className="text-3xl font-black text-amber-600">92%</div>
+                  <p className="text-xs text-[#58423d]">Fund deployment on schedule</p>
+                </div>
               </div>
             </div>
           )}
         </main>
       </div>
 
-      {/* CREATE STUDENT TEAM MODAL */}
+      {/* Register Team Modal */}
       {isTeamModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <form onSubmit={handleCreateTeamSubmit} className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl border border-[#e0e3e5] relative space-y-4">
-            <button
-              type="button"
-              onClick={() => setIsTeamModalOpen(false)}
-              className="absolute top-4 right-4 text-[#58423d] hover:text-[#191c1e] cursor-pointer"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-[#e0e3e5] space-y-4">
+            <div className="flex justify-between items-center border-b border-[#e0e3e5] pb-3">
+              <h3 className="text-lg font-bold text-[#191c1e]">Register R&amp;D Student Innovation Cell</h3>
+              <button onClick={() => setIsTeamModalOpen(false)} className="text-[#58423d] hover:text-[#191c1e] cursor-pointer">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
 
-            <h3 className="text-xl font-bold text-[#191c1e]">Register Student R&amp;D Team</h3>
-
-            <div className="space-y-3 text-xs">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              showToast(`Student Team "${teamForm.teamName}" registered!`);
+              setIsTeamModalOpen(false);
+            }} className="space-y-3 text-xs">
               <div>
-                <label className="block font-bold text-[#191c1e] mb-1">Team / Lab Name</label>
+                <label className="block font-bold text-[#191c1e] mb-1">Team Name *</label>
                 <input
                   type="text"
                   required
+                  placeholder="e.g. EcoHydro Innovation Lab"
                   value={teamForm.teamName}
                   onChange={(e) => setTeamForm({ ...teamForm, teamName: e.target.value })}
-                  placeholder="e.g. IoT Sensor Research Group"
-                  className="w-full p-2.5 border border-[#e0e3e5] rounded-xl outline-none focus:border-[#2F36ED]"
+                  className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-[#191c1e] mb-1">Faculty Lead / Advisor</label>
+                <label className="block font-bold text-[#191c1e] mb-1">Faculty Mentor Name *</label>
                 <input
                   type="text"
                   required
+                  placeholder="e.g. Dr. Rajesh Verma"
                   value={teamForm.leadFaculty}
                   onChange={(e) => setTeamForm({ ...teamForm, leadFaculty: e.target.value })}
-                  placeholder="e.g. Prof. A. K. Sharma"
-                  className="w-full p-2.5 border border-[#e0e3e5] rounded-xl outline-none focus:border-[#2F36ED]"
+                  className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
                 />
               </div>
-            </div>
 
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsTeamModalOpen(false)}
-                className="flex-1 py-2.5 border border-[#e0e3e5] rounded-xl text-xs font-bold text-[#58423d] hover:bg-[#f2f4f6]"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="flex-1 py-2.5 bg-[#F36F56] text-white rounded-xl text-xs font-bold shadow-sm hover:bg-[#a83824]"
-              >
-                Register Team
-              </button>
-            </div>
-          </form>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTeamModalOpen(false)}
+                  className="flex-1 py-2.5 border border-[#e0e3e5] rounded-xl font-bold text-[#58423d] hover:bg-[#f8f9fb]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-[#2F36ED] text-white rounded-xl font-bold hover:bg-blue-800 shadow-sm"
+                >
+                  Register Team
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

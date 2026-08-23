@@ -18,6 +18,24 @@ function LandingPage() {
     stakeholder: 'Citizen'
   });
 
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userDashboardPath, setUserDashboardPath] = useState('/login');
+
+  React.useEffect(() => {
+    const role = localStorage.getItem('jandrishti_user_role');
+    const token = localStorage.getItem('jandrishti_token') || localStorage.getItem('government_token') || localStorage.getItem('university_token');
+    const userInfo = localStorage.getItem('jandrishti_user_info');
+    if (role || token || userInfo) {
+      setIsLoggedIn(true);
+      if (role === 'govt') setUserDashboardPath('/dashboard');
+      else if (role === 'univ') setUserDashboardPath('/university-dashboard');
+      else if (role === 'industry') setUserDashboardPath('/industry-dashboard');
+      else setUserDashboardPath('/citizen-dashboard');
+    } else {
+      setIsLoggedIn(false);
+    }
+  }, []);
+
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
@@ -72,18 +90,30 @@ function LandingPage() {
 
           <div className="flex gap-3 items-center">
             <DarkModeToggle />
-            <button 
-              onClick={() => navigate('/login')}
-              className="text-primary hover:bg-surface-container-low transition-all px-4 py-2 rounded-xl text-label-sm font-label-sm border border-primary hidden md:block font-medium cursor-pointer"
-            >
-              Login
-            </button>
-            <button 
-              onClick={() => navigate('/register')}
-              className="bg-action-orange text-white hover:bg-opacity-90 transition-all px-4 py-2 rounded-xl text-label-sm font-label-sm font-semibold shadow-md shadow-action-orange/20 cursor-pointer"
-            >
-              Register
-            </button>
+            {isLoggedIn ? (
+              <button 
+                onClick={() => navigate(userDashboardPath)}
+                className="bg-action-orange text-white hover:bg-opacity-90 transition-all px-5 py-2.5 rounded-xl text-label-sm font-label-sm font-bold shadow-md shadow-action-orange/20 cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Go to Dashboard</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </button>
+            ) : (
+              <>
+                <button 
+                  onClick={() => navigate('/login')}
+                  className="text-primary hover:bg-surface-container-low transition-all px-4 py-2 rounded-xl text-label-sm font-label-sm border border-primary hidden md:block font-medium cursor-pointer"
+                >
+                  Login
+                </button>
+                <button 
+                  onClick={() => navigate('/register')}
+                  className="bg-action-orange text-white hover:bg-opacity-90 transition-all px-4 py-2 rounded-xl text-label-sm font-label-sm font-semibold shadow-md shadow-action-orange/20 cursor-pointer"
+                >
+                  Register
+                </button>
+              </>
+            )}
           </div>
         </div>
       </nav>

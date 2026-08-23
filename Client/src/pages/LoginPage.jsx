@@ -12,6 +12,18 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
+  React.useEffect(() => {
+    const savedRole = localStorage.getItem('jandrishti_user_role');
+    const token = localStorage.getItem('jandrishti_token') || localStorage.getItem('government_token') || localStorage.getItem('university_token');
+    const userInfo = localStorage.getItem('jandrishti_user_info');
+    if (savedRole || token || userInfo) {
+      if (savedRole === 'govt') navigate('/dashboard');
+      else if (savedRole === 'univ') navigate('/university-dashboard');
+      else if (savedRole === 'industry') navigate('/industry-dashboard');
+      else navigate('/citizen-home');
+    }
+  }, [navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage(null);

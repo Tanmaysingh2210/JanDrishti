@@ -58,6 +58,20 @@ function GovtDashboardPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:3000/api/government/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (err) {
+      console.error('Logout API error:', err);
+    }
+    localStorage.clear();
+    sessionStorage.clear();
+    navigate('/login');
+  };
+
   const fetchUniversities = async () => {
     setLoadingUnivs(true);
     try {
@@ -313,12 +327,6 @@ function GovtDashboardPage() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
-  };
-
   return (
     <div className="bg-[#f8f9fb] text-[#191c1e] flex flex-col h-screen overflow-hidden font-sans antialiased">
       {/* Toast Notification */}
@@ -376,29 +384,6 @@ function GovtDashboardPage() {
                   <span className="inline-block mt-1 px-2 py-0.5 rounded bg-[#F36F56]/10 text-[#F36F56] text-[10px] font-bold">
                     Sovereign Admin
                   </span>
-                </div>
-
-                <div className="py-1">
-                  <button
-                    onClick={() => {
-                      setActiveView('users');
-                      setShowProfileDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-[#58423d] hover:bg-[#f8f9fb] hover:text-[#191c1e] flex items-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base text-[#58423d]">group</span>
-                    Users &amp; Roles
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveView('settings');
-                      setShowProfileDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-[#58423d] hover:bg-[#f8f9fb] hover:text-[#191c1e] flex items-center gap-2.5 transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base text-[#58423d]">settings</span>
-                    Settings
-                  </button>
                 </div>
 
                 <div className="py-1">

@@ -7,50 +7,59 @@ export const getAssignedProjectsForIndustry = async (req, res) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
 
-    const query = {
-      status: { $in: ["assigned", "in_progress"] },
-    };
-
-    if (search) {
-      query.title = new RegExp(search, "i");
-    }
-
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    // 1. Fetch from Project model
-    let projects = await Project.find(query)
+    // 1. Fetch all Projects from Project model
+    let projects = await Project.find({})
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate("issueId", "title category location description photos videos")
+      .populate("issueId", "title category location description photos videos status")
       .populate("universityId", "name code type email state district website");
 
-    // 2. Also fetch Issues that have an assigned University
-    const assignedIssues = await Issue.find({
-      status: { $in: ["assigned", "in_progress"] },
-      assignedUniversityId: { $ne: null },
-    })
+    // 2. Fetch all Issues from system
+    let issueQuery = {};
+    if (search) {
+      issueQuery.title = new RegExp(search, "i");
+    }
+
+    const allIssues = await Issue.find(issueQuery)
       .sort({ createdAt: -1 })
       .populate("assignedUniversityId", "name code type email state district website");
 
-    // Combine any assigned Issues that don't already have a Project record
+    // Combine any Issues that don't already have a Project record
     const existingProjectIssueIds = new Set(
-      projects.map((p) => (p.issueId?._id || p.issueId)?.toString())
+      projects.map((p) => (p.issueId?._id || p.issueId)?.toString()).filter(Boolean)
     );
 
-    const extraProjectsFromIssues = assignedIssues
+    const extraProjectsFromIssues = allIssues
       .filter((iss) => !existingProjectIssueIds.has(iss._id.toString()))
       .map((iss) => ({
         _id: iss._id,
         issueId: iss,
         universityId: iss.assignedUniversityId,
         title: iss.title,
+        description: iss.description,
+        category: iss.category,
+        location: iss.location?.district || iss.location?.address || "Jharkhand",
         status: iss.status,
         createdAt: iss.createdAt,
         isFromIssue: true,
       }));
 
-    const combinedProjects = [...projects, ...extraProjectsFromIssues];
+    const cleanedProjects = projects.map(p => ({
+      _id: p._id,
+      issueId: p.issueId,
+      universityId: p.universityId,
+      title: (typeof p.issueId === 'object' && p.issueId?.title) ? p.issueId.title : p.title,
+      description: (typeof p.issueId === 'object' && p.issueId?.description) ? p.issueId.description : p.description,
+      category: (typeof p.issueId === 'object' && p.issueId?.category) ? p.issueId.category : "R&D Innovation",
+      location: (typeof p.issueId === 'object' && p.issueId?.location?.district) ? p.issueId.location.district : "Jharkhand",
+      status: p.status,
+      createdAt: p.createdAt
+    }));
+
+    const combinedProjects = [...cleanedProjects, ...extraProjectsFromIssues];
 
     return res.status(200).json({
       success: true,
@@ -241,5 +250,3 @@ export const getMyIndustryProposals = async (req, res) => {
     });
   }
 };
-
-

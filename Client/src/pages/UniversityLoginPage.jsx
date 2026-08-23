@@ -10,6 +10,18 @@ function UniversityLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  React.useEffect(() => {
+    const savedRole = localStorage.getItem('jandrishti_user_role');
+    const token = localStorage.getItem('jandrishti_token') || localStorage.getItem('university_token');
+    const userInfo = localStorage.getItem('jandrishti_user_info');
+    if (savedRole || token || userInfo) {
+      if (savedRole === 'univ' || token) navigate('/university-dashboard');
+      else if (savedRole === 'govt') navigate('/dashboard');
+      else if (savedRole === 'industry') navigate('/industry-dashboard');
+      else navigate('/citizen-home');
+    }
+  }, [navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
