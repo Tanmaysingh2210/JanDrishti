@@ -100,12 +100,12 @@ export default function EvidenceScreen() {
                 );
             }
 
-            console.log(
-                "Cloudinary upload:",
-                data.file
-            );
+            console.log("Cloudinary upload response:", data);
 
-            return data.file;
+            return {
+                url: data.url,
+                publicId: data.publicId,
+            };
 
         } catch (error) {
 
@@ -283,20 +283,15 @@ export default function EvidenceScreen() {
                 "Add Evidence",
                 "Please take a photo or record a video before continuing."
             );
-
             return;
         }
 
-        /*
-          Later:
-    
-          1. Upload evidence to backend
-          2. Backend uploads to Cloudinary
-          3. Receive Cloudinary URLs
-          4. Navigate to next report page
-        */
-
-        router.push("/");
+        router.push({
+            pathname: "/category",
+            params: {
+                evidence: JSON.stringify(evidence),
+            },
+        });
     };
 
     // ==========================================
