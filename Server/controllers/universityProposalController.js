@@ -170,6 +170,12 @@ export const submitProposal = async (req, res) => {
     });
   } catch (error) {
     console.error("Submit Proposal Error:", error);
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Your university has already submitted a proposal for this challenge.",
+      });
+    }
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
@@ -293,6 +299,12 @@ export const submitUniversityProposalDirect = async (req, res) => {
     });
   } catch (error) {
     console.error("Submit Proposal Direct Error:", error);
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Your university has already submitted a proposal for this challenge.",
+      });
+    }
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
