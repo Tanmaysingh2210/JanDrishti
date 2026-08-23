@@ -128,7 +128,7 @@ export default function Login() {
 
             <Text style={styles.logoText}>
               <Text style={styles.logoCoral}>
-                Nagar
+                Jan
               </Text>
               <Text style={styles.logoBlue}>
                 Drishti
