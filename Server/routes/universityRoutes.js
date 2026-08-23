@@ -5,6 +5,7 @@ import {
   getAllUniversities,
   approveUniversity,
 } from "../controllers/universityController.js";
+import { getAllIssues } from "../controllers/governmentIssueController.js";
 
 const router = express.Router();
 
@@ -16,9 +17,10 @@ const router = express.Router();
 // Public university registration
 router.post("/register", registerUniversity);
 
-// Get all registered universities
+// Get all registered universities & challenges
 router.get("/", getAllUniversities);
-router.get("", getAllUniversities);
+router.get("/all", getAllUniversities);
+router.get("/challenges", getAllIssues);
 
 // Approve university
 router.put("/:id/approve", approveUniversity);

@@ -255,7 +255,7 @@ function CitizenHomePage() {
       {/* MAIN CONTENT WRAPPER */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* TOP BAR */}
-        <header className="bg-white h-20 flex justify-between items-center px-6 w-full shrink-0 z-10 border-b border-[#e0e3e5]">
+        <header className="bg-white h-20 flex justify-between items-center px-6 w-full shrink-0 relative z-50 border-b border-[#e0e3e5]">
           {/* Mobile Menu & Logo */}
           <div className="md:hidden flex items-center gap-3">
             <button className="text-[#58423d]">
@@ -274,7 +274,7 @@ function CitizenHomePage() {
           {/* Top Right Profile Dropdown */}
           <div className="flex items-center gap-3">
             <DarkModeToggle />
-            <div className="relative" ref={profileDropdownRef}>
+            <div className="relative z-50" ref={profileDropdownRef}>
               <button
                 onClick={() => setShowProfileMenu((prev) => !prev)}
                 className="flex items-center gap-2.5 hover:bg-[#f8f9fb] p-1.5 rounded-xl border border-[#e0e3e5] cursor-pointer transition-all shadow-xs"
@@ -297,7 +297,7 @@ function CitizenHomePage() {
 
               {/* Profile Dropdown Menu */}
               {showProfileMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white border border-[#e0e3e5] rounded-2xl shadow-xl z-50 py-2 divide-y divide-[#e0e3e5] animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-[#e0e3e5] rounded-2xl shadow-2xl z-[100] py-2 divide-y divide-[#e0e3e5] animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="px-4 py-3 bg-[#f8f9fb] rounded-t-2xl">
                     <p className="text-xs font-extrabold text-[#191c1e]">
                       {user?.fullName || 'Aarav Sharma'}

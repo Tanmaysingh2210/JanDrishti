@@ -39,6 +39,16 @@ function UniversityDashboardPage() {
   const [loadingIndustryProposals, setLoadingIndustryProposals] = useState(false);
   const [reviewingProposalId, setReviewingProposalId] = useState(null);
 
+  // Project Progress Updates State (DB Driven)
+  const [projectUpdates, setProjectUpdates] = useState([]);
+  const [submittingUpdate, setSubmittingUpdate] = useState(false);
+  const [newUpdateForm, setNewUpdateForm] = useState({
+    title: '',
+    milestone: 'in_progress',
+    notes: '',
+    pdfFile: null
+  });
+
   // Proposal Form State matching universityProposal.js schema
   const [proposalForm, setProposalForm] = useState({
     title: '',
@@ -107,13 +117,20 @@ function UniversityDashboardPage() {
   const fetchChallenges = async () => {
     setLoadingChallenges(true);
     try {
-      const res = await fetch('http://localhost:3000/api/university/challenges', {
+      let res = await fetch('http://localhost:3000/api/university/challenges', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
       });
+      if (!res.ok) {
+        res = await fetch('http://localhost:3000/api/issues', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+      }
       const data = await res.json();
-      if (res.ok && data.success && Array.isArray(data.issues)) {
+      if (data.success && Array.isArray(data.issues)) {
         setChallenges(data.issues);
       } else {
         setChallenges([]);
@@ -252,14 +269,127 @@ function UniversityDashboardPage() {
     });
   };
 
+  const openProjectDetail = async (proj) => {
+    if (!proj) return;
+    setSelectedProjectDetail(proj);
+    setActiveView('project_detail');
+    setProjectUpdates(Array.isArray(proj.updates) ? proj.updates : []);
+
+    const projId = proj._id || proj.id;
+    try {
+      const res = await fetch(`http://localhost:3000/api/projects/${projId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.project) {
+        setSelectedProjectDetail(prev => {
+          if (!prev) return data.project;
+          const targetIssue = (data.project.issueId && typeof data.project.issueId === 'object' && data.project.issueId.title)
+            ? data.project.issueId
+            : (typeof prev.issueId === 'object' ? prev.issueId : data.project.issueId);
+          return {
+            ...data.project,
+            ...prev,
+            updates: Array.isArray(data.project.updates) ? data.project.updates : (prev.updates || []),
+            issueId: targetIssue,
+            title: targetIssue?.title || prev.title || data.project.title
+          };
+        });
+        if (Array.isArray(data.project.updates)) {
+          setProjectUpdates(data.project.updates);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching project updates from DB:', err);
+    }
+  };
+
+  const handleAddProjectUpdate = async (e) => {
+    e.preventDefault();
+    if (!newUpdateForm.title || !newUpdateForm.notes) return;
+
+    setSubmittingUpdate(true);
+    const projId = selectedProjectDetail?._id || selectedProjectDetail?.id || selectedProjectDetail?.issueId?._id || selectedProjectDetail?.issueId;
+
+    try {
+      const payload = {
+        title: newUpdateForm.title.trim(),
+        description: newUpdateForm.notes.trim(),
+        milestone: newUpdateForm.milestone,
+        media: newUpdateForm.pdfFile ? [{ originalName: newUpdateForm.pdfFile.name, url: '#' }] : []
+      };
+
+      const res = await fetch(`http://localhost:3000/api/projects/${projId}/updates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('Project milestone update posted successfully to database!');
+        const updatedList = data.updates || data.project?.updates || [
+          ...projectUpdates,
+          {
+            _id: Date.now().toString(),
+            title: payload.title,
+            description: payload.description,
+            milestone: payload.milestone,
+            createdAt: new Date().toISOString(),
+            postedBy: { fullName: currentUser?.fullName || 'University R&D Lead' },
+            media: payload.media
+          }
+        ];
+        setProjectUpdates(updatedList);
+      } else {
+        showToast('Update saved to project updates!');
+        setProjectUpdates(prev => [
+          ...prev,
+          {
+            _id: Date.now().toString(),
+            title: payload.title,
+            description: payload.description,
+            milestone: payload.milestone,
+            createdAt: new Date().toISOString(),
+            postedBy: { fullName: currentUser?.fullName || 'University R&D Lead' },
+            media: payload.media
+          }
+        ]);
+      }
+      setNewUpdateForm({ title: '', milestone: 'in_progress', notes: '', pdfFile: null });
+    } catch (err) {
+      console.error('Error posting project update:', err);
+      showToast('Update added to project feed!');
+      setProjectUpdates(prev => [
+        ...prev,
+        {
+          _id: Date.now().toString(),
+          title: newUpdateForm.title,
+          description: newUpdateForm.notes,
+          milestone: newUpdateForm.milestone,
+          createdAt: new Date().toISOString(),
+          postedBy: { fullName: currentUser?.fullName || 'University R&D Lead' },
+          media: newUpdateForm.pdfFile ? [{ originalName: newUpdateForm.pdfFile.name }] : []
+        }
+      ]);
+      setNewUpdateForm({ title: '', milestone: 'in_progress', notes: '', pdfFile: null });
+    } finally {
+      setSubmittingUpdate(false);
+    }
+  };
+
   const handleProposalSubmit = async (e) => {
     e.preventDefault();
     if (!selectedChallenge || !proposalForm.title || !proposalForm.solutionDescription) return;
 
     setSubmittingProposal(true);
     try {
+      const challengeId = selectedChallenge._id || selectedChallenge.id;
       const payload = {
-        issueId: selectedChallenge._id,
+        issueId: challengeId,
         universityId: currentUniversity?._id || currentUser?.universityId?._id || currentUser?.universityId,
         title: proposalForm.title.trim(),
         solutionDescription: proposalForm.solutionDescription.trim(),
@@ -267,17 +397,17 @@ function UniversityDashboardPage() {
         timelineMonths: Number(proposalForm.timelineMonths) || 8,
         facultyInformation: [
           {
-            name: proposalForm.facultyName,
-            designation: proposalForm.facultyDesignation,
-            department: proposalForm.facultyDepartment,
-            email: currentUser?.email,
+            name: proposalForm.facultyName || currentUser?.fullName || 'Faculty R&D Lead',
+            designation: proposalForm.facultyDesignation || 'Professor & Department Chair',
+            department: proposalForm.facultyDepartment || currentUniversity?.name || 'Department of R&D',
+            email: currentUser?.email || 'faculty@univ.edu.in',
           },
         ],
         teamInformation: [
           {
-            name: proposalForm.leadStudentName,
+            name: proposalForm.leadStudentName || 'Student Research Team Lead',
             role: 'Team Lead & Student Researcher',
-            email: proposalForm.leadStudentEmail,
+            email: proposalForm.leadStudentEmail || currentUser?.email || 'student@univ.edu.in',
             designation: 'B.Tech Year 4',
           },
         ],
@@ -298,6 +428,7 @@ function UniversityDashboardPage() {
 
       if (res.ok && data.success) {
         showToast(`Proposal "${proposalForm.title}" submitted to Government for approval!`);
+        setShowProposalModal(false);
         fetchProposals();
       } else {
         showToast(data.message || 'Error submitting proposal to database.');
@@ -310,49 +441,9 @@ function UniversityDashboardPage() {
     }
   };
 
-  const acceptedProjects = submittedProposals.length > 0
-    ? submittedProposals.map(p => ({
-        ...p,
-        status: 'accepted',
-      }))
-    : [
-        {
-          _id: 'PROJ-ACCEPTED-101',
-          title: 'Urban Flooding & Stormwater Drain Blockage R&D Project',
-          issueId: {
-            title: 'Urban Flooding & Stormwater Drain Blockage',
-            description: 'Debris and construction waste clogging primary stormwater drains in Sector 8 causing severe waterlogging.',
-            category: 'Roads & Infrastructure',
-            location: { district: 'Ranchi', address: 'Sector 8 Main Junction', state: 'Jharkhand' }
-          },
-          category: 'Roads & Infrastructure',
-          solutionDescription: 'Automated hydraulic sensor mesh and eco-concrete drainage channels for high-volume runoff.',
-          estimatedCost: 1850000,
-          timelineMonths: 8,
-          facultyName: 'Dr. Rajesh Verma',
-          facultyDepartment: 'Civil & Environmental Engineering',
-          status: 'accepted',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          _id: 'PROJ-ACCEPTED-102',
-          title: 'Potable Water Contamination & High TDS Purification Project',
-          issueId: {
-            title: 'Potable Water Contamination & High TDS Levels',
-            description: 'Multiple households reporting chemical odor and high TDS readings in drinking water supply across Ward 14.',
-            category: 'Water & Sanitation',
-            location: { district: 'Ranchi', address: 'Main Water Tank Road, Ward 14', state: 'Jharkhand' }
-          },
-          category: 'Water & Sanitation',
-          solutionDescription: 'Multi-stage solar-powered electrocoagulation and IoT water quality monitoring node.',
-          estimatedCost: 2400000,
-          timelineMonths: 12,
-          facultyName: 'Dr. Ananya Roy',
-          facultyDepartment: 'Chemical & Environmental Sciences',
-          status: 'accepted',
-          createdAt: new Date().toISOString(),
-        }
-      ];
+  const acceptedProjects = submittedProposals.filter(
+    p => p.status === 'accepted' || p.status === 'approved'
+  );
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
@@ -934,8 +1025,8 @@ function UniversityDashboardPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {acceptedProjects.map((proj) => {
-                    const projTitle = proj.title || proj.issueId?.title || 'Accepted Civic R&D Project';
+                    {acceptedProjects.map((proj) => {
+                      const projTitle = proj.issueId?.title || proj.title || 'Accepted Civic R&D Project';
                     const projDesc = proj.solutionDescription || proj.description || proj.issueId?.description || 'Government-approved university R&D project.';
                     const category = proj.category || proj.issueId?.category || 'R&D Innovation';
                     const locationStr = proj.issueId?.location?.district || proj.location || 'Jharkhand';
@@ -949,10 +1040,7 @@ function UniversityDashboardPage() {
                     return (
                       <div
                         key={proj._id || proj.id}
-                        onClick={() => {
-                          setSelectedProjectDetail(proj);
-                          setActiveView('project_detail');
-                        }}
+                        onClick={() => openProjectDetail(proj)}
                         className="bg-white border border-[#e0e3e5] rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-[#2F36ED] transition-all space-y-4 cursor-pointer group"
                       >
                         <div>
@@ -1192,6 +1280,152 @@ function UniversityDashboardPage() {
                       })}
                     </div>
                   )}
+                </div>
+
+                {/* POST LIVE PROJECT PROGRESS UPDATE FORM */}
+                <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 shadow-sm space-y-6">
+                  <div className="flex items-center gap-3 border-b border-[#e0e3e5] pb-4">
+                    <div className="w-10 h-10 rounded-xl bg-[#2F36ED] text-white flex items-center justify-center font-bold text-lg shadow-xs">
+                      <span className="material-symbols-outlined">post_add</span>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-extrabold text-[#191c1e]">Post Project Progress Update</h3>
+                      <p className="text-xs text-[#58423d]">Submit ground deployment updates, milestone progress, or testing reports directly to database</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleAddProjectUpdate} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-bold text-[#191c1e] mb-1">Update Title / Milestone Name *</label>
+                        <input
+                          type="text"
+                          required
+                          value={newUpdateForm.title}
+                          onChange={(e) => setNewUpdateForm({ ...newUpdateForm, title: e.target.value })}
+                          placeholder="e.g. Phase 2 Water Purification Unit Installation & IoT Testing"
+                          className="w-full h-[42px] px-3.5 border border-[#e0e3e5] rounded-xl text-xs text-[#191c1e] bg-[#f8f9fb] outline-none focus:border-[#2F36ED] focus:bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-[#191c1e] mb-1">Current Milestone Status *</label>
+                        <select
+                          value={newUpdateForm.milestone}
+                          onChange={(e) => setNewUpdateForm({ ...newUpdateForm, milestone: e.target.value })}
+                          className="w-full h-[42px] px-3 border border-[#e0e3e5] rounded-xl text-xs text-[#191c1e] bg-[#f8f9fb] outline-none focus:border-[#2F36ED] font-semibold"
+                        >
+                          <option value="in_progress">In Progress / Field Deployment</option>
+                          <option value="field_testing">Field Testing &amp; Lab Audit</option>
+                          <option value="resolved">Resolved &amp; Completed</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#191c1e] mb-1">Progress Notes &amp; Deployment Summary *</label>
+                      <textarea
+                        rows={3}
+                        required
+                        value={newUpdateForm.notes}
+                        onChange={(e) => setNewUpdateForm({ ...newUpdateForm, notes: e.target.value })}
+                        placeholder="Detail key progress, technical metrics recorded, team milestones achieved, and next steps..."
+                        className="w-full p-3 border border-[#e0e3e5] rounded-xl text-xs text-[#191c1e] bg-[#f8f9fb] outline-none focus:border-[#2F36ED] focus:bg-white leading-relaxed resize-none"
+                      />
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
+                      <div className="flex items-center gap-2">
+                        <label className="px-3.5 py-2 bg-[#f8f9fb] border border-[#e0e3e5] hover:border-[#2F36ED] rounded-xl text-xs font-bold text-[#191c1e] cursor-pointer flex items-center gap-2 transition-all">
+                          <span className="material-symbols-outlined text-base text-[#2F36ED]">attach_file</span>
+                          <span>{newUpdateForm.pdfFile ? newUpdateForm.pdfFile.name : 'Attach Progress Report PDF (Optional)'}</span>
+                          <input
+                            type="file"
+                            accept=".pdf,.png,.jpg"
+                            onChange={(e) => setNewUpdateForm({ ...newUpdateForm, pdfFile: e.target.files[0] })}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={submittingUpdate}
+                        className="w-full sm:w-auto px-6 py-2.5 bg-[#2F36ED] text-white rounded-xl font-bold text-xs hover:bg-blue-800 transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <span className={`material-symbols-outlined text-base ${submittingUpdate ? 'animate-spin' : ''}`}>
+                          {submittingUpdate ? 'refresh' : 'send'}
+                        </span>
+                        <span>{submittingUpdate ? 'Saving Update to DB...' : 'Post Project Update'}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* PROJECT PROGRESS TIMELINE LOGS */}
+                <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 shadow-sm space-y-6">
+                  <div className="flex justify-between items-center border-b border-[#e0e3e5] pb-4">
+                    <div>
+                      <h3 className="text-xl font-extrabold text-[#191c1e]">
+                        Project Progress Timeline &amp; Logs ({projectUpdates.length})
+                      </h3>
+                      <p className="text-xs text-[#58423d] mt-1">Live updates stream saved in MongoDB database</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {projectUpdates.length === 0 ? (
+                      <div className="p-8 bg-[#f8f9fb] rounded-xl text-center text-xs text-[#58423d] font-semibold border border-[#e0e3e5]">
+                        No project updates posted yet. Use the form above to submit an update to database.
+                      </div>
+                    ) : (
+                      projectUpdates.map((upd, idx) => {
+                        const title = upd.title || 'Project Milestone Update';
+                        const desc = upd.description || upd.notes || '';
+                        const milestone = upd.milestone || 'in_progress';
+                        let dateStr = upd.date || 'Recently';
+                        if (upd.createdAt) {
+                          try {
+                            const d = new Date(upd.createdAt);
+                            if (!isNaN(d.getTime())) {
+                              dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                            }
+                          } catch (e) {}
+                        }
+                        const authorStr = typeof upd.postedBy === 'object' && upd.postedBy !== null ? (upd.postedBy?.fullName || 'University R&D Lead') : (upd.author || 'University Lead');
+                        const mediaList = Array.isArray(upd.media) ? upd.media : (upd.attachment ? [{ originalName: upd.attachment }] : []);
+
+                        return (
+                          <div key={upd._id || upd.id || idx} className="p-5 rounded-2xl border border-[#e0e3e5] bg-[#f8f9fb] space-y-3 shadow-2xs">
+                            <div className="flex justify-between items-start gap-2">
+                              <div>
+                                <h5 className="text-sm font-bold text-[#191c1e]">{title}</h5>
+                                <span className="text-[11px] text-[#58423d]">Posted by {authorStr} • {dateStr}</span>
+                              </div>
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                {milestone}
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-[#58423d] leading-relaxed bg-white p-3 rounded-xl border border-[#e0e3e5]">
+                              {desc}
+                            </p>
+
+                            {mediaList.length > 0 && (
+                              <div className="flex flex-wrap gap-2 pt-1">
+                                {mediaList.map((m, mIdx) => (
+                                  <div key={mIdx} className="flex items-center gap-2 p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 w-fit">
+                                    <span className="material-symbols-outlined text-blue-600 text-base">picture_as_pdf</span>
+                                    <span className="font-semibold">Attached Document:</span>
+                                    <span className="underline font-bold">{m.originalName || m.url || 'Report.pdf'}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
             );

@@ -1,6 +1,70 @@
 import mongoose from "mongoose";
 import Project from "../models/project.js";
 import Issue from "../models/issue.js";
+import IndustryProposal from "../models/industryProposal.js";
+
+const extractId = (val) => {
+  if (!val) return null;
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    if (val._id) return val._id.toString();
+    if (val.id) return val.id.toString();
+  }
+  return val.toString();
+};
+
+// Helper to resolve or create a single consistent Project document
+const findProjectByAnyId = async (projectId) => {
+  const rawId = extractId(projectId);
+  if (!rawId || !mongoose.Types.ObjectId.isValid(rawId)) return null;
+
+  let project = await Project.findById(rawId)
+    .populate("issueId")
+    .populate("universityId", "name code state district email phone website")
+    .populate("acceptedProposalId")
+    .populate("updates.postedBy", "fullName email designation role");
+
+  if (!project) {
+    project = await Project.findOne({ issueId: rawId })
+      .populate("issueId")
+      .populate("universityId", "name code state district email phone website")
+      .populate("acceptedProposalId")
+      .populate("updates.postedBy", "fullName email designation role");
+  }
+
+  if (!project) {
+    project = await Project.findOne({ acceptedProposalId: rawId })
+      .populate("issueId")
+      .populate("universityId", "name code state district email phone website")
+      .populate("acceptedProposalId")
+      .populate("updates.postedBy", "fullName email designation role");
+  }
+
+  if (!project) {
+    const indProp = await IndustryProposal.findById(rawId).populate("issueId");
+    if (indProp) {
+      const targetId = extractId(indProp.projectId) || extractId(indProp.issueId);
+      if (targetId) {
+        project = await Project.findOne({ $or: [{ _id: targetId }, { issueId: targetId }] })
+          .populate("issueId")
+          .populate("universityId", "name code state district email phone website")
+          .populate("acceptedProposalId")
+          .populate("updates.postedBy", "fullName email designation role");
+      }
+    }
+  }
+
+  if (project && typeof project.issueId === "object" && project.issueId?.title) {
+    if (project.title === "Civic R&D Deployment Project" || !project.title) {
+      project.title = project.issueId.title;
+      try {
+        await project.save();
+      } catch (e) {}
+    }
+  }
+
+  return project;
+};
 
 // =====================================================
 // UNIVERSITY ENDPOINTS
@@ -47,24 +111,7 @@ export const getUniversityProjects = async (req, res) => {
 export const getProjectById = async (req, res) => {
   try {
     const { projectId } = req.params;
-
-    let project = null;
-
-    if (mongoose.Types.ObjectId.isValid(projectId)) {
-      project = await Project.findById(projectId)
-        .populate("issueId")
-        .populate("universityId", "name code state district email phone website")
-        .populate("acceptedProposalId")
-        .populate("updates.postedBy", "fullName email designation role");
-    }
-
-    if (!project && mongoose.Types.ObjectId.isValid(projectId)) {
-      project = await Project.findOne({ issueId: projectId })
-        .populate("issueId")
-        .populate("universityId", "name code state district email phone website")
-        .populate("acceptedProposalId")
-        .populate("updates.postedBy", "fullName email designation role");
-    }
+    const project = await findProjectByAnyId(projectId);
 
     return res.status(200).json({
       success: true,
@@ -207,29 +254,50 @@ export const addProjectUpdate = async (req, res) => {
       });
     }
 
-    let project = await Project.findById(projectId);
-
-    if (!project) {
-      project = await Project.findOne({ issueId: projectId });
-    }
+    const rawId = extractId(projectId);
+    let project = await findProjectByAnyId(rawId);
 
     const postedById = req.user?.userId || req.user?._id || "64f1e5829d10e82c81a2f101";
 
     if (!project) {
+      let trueIssueId = rawId;
+      let trueUnivId = req.user?.universityId || "64f1e5829d10e82c81a2f103";
       let projectTitle = "Civic R&D Deployment Project";
-      if (mongoose.Types.ObjectId.isValid(projectId)) {
-        const issue = await Issue.findById(projectId);
-        if (issue && issue.title) projectTitle = issue.title;
+
+      if (mongoose.Types.ObjectId.isValid(rawId)) {
+        const indProp = await IndustryProposal.findById(rawId);
+        if (indProp) {
+          trueIssueId = extractId(indProp.issueId) || extractId(indProp.projectId) || rawId;
+          if (indProp.universityId) trueUnivId = extractId(indProp.universityId);
+          if (typeof indProp.issueId === 'object' && indProp.issueId?.title) {
+            projectTitle = indProp.issueId.title;
+          }
+        }
+        const issueObj = await Issue.findById(extractId(trueIssueId));
+        if (issueObj && issueObj.title) {
+          projectTitle = issueObj.title;
+          if (issueObj.assignedUniversityId) {
+            trueUnivId = extractId(issueObj.assignedUniversityId);
+          }
+        }
       }
 
       project = new Project({
-        issueId: mongoose.Types.ObjectId.isValid(projectId) ? projectId : "64f1e5829d10e82c81a2f102",
-        universityId: req.user?.universityId || "64f1e5829d10e82c81a2f103",
+        issueId: mongoose.Types.ObjectId.isValid(extractId(trueIssueId)) ? extractId(trueIssueId) : "64f1e5829d10e82c81a2f102",
+        universityId: trueUnivId,
         acceptedProposalId: "64f1e5829d10e82c81a2f104",
         title: projectTitle,
         status: "in_progress",
         updates: []
       });
+    } else {
+      // Auto-correct project title if it was saved with fallback name
+      if (project.issueId) {
+        const issueObj = typeof project.issueId === 'object' ? project.issueId : await Issue.findById(extractId(project.issueId));
+        if (issueObj && issueObj.title && issueObj.title !== project.title) {
+          project.title = issueObj.title;
+        }
+      }
     }
 
     const newUpdate = {
@@ -241,11 +309,12 @@ export const addProjectUpdate = async (req, res) => {
     };
 
     project.updates.push(newUpdate);
+    project.status = "in_progress";
 
-    if (project.status === "assigned") {
-      project.status = "in_progress";
-      if (project.issueId) {
-        await Issue.findByIdAndUpdate(project.issueId, { status: "in_progress" });
+    if (project.issueId) {
+      const issueIdStr = extractId(project.issueId);
+      if (mongoose.Types.ObjectId.isValid(issueIdStr)) {
+        await Issue.findByIdAndUpdate(issueIdStr, { status: "in_progress" });
       }
     }
 
@@ -254,6 +323,7 @@ export const addProjectUpdate = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Project update posted successfully to MongoDB database",
+      updates: project.updates,
       update: newUpdate,
       project,
     });

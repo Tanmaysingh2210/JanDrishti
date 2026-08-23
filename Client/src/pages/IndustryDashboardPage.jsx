@@ -197,7 +197,19 @@ function IndustryDashboardPage() {
       });
       const data = await res.json();
       if (res.ok && data.success && data.project) {
-        setSelectedCsrProject(prev => (prev ? { ...prev, ...data.project } : data.project));
+        setSelectedCsrProject(prev => {
+          if (!prev) return data.project;
+          const targetIssue = (data.project.issueId && typeof data.project.issueId === 'object' && data.project.issueId.title)
+            ? data.project.issueId
+            : (typeof prev.issueId === 'object' ? prev.issueId : data.project.issueId);
+          return {
+            ...data.project,
+            ...prev,
+            updates: Array.isArray(data.project.updates) ? data.project.updates : (prev.updates || []),
+            issueId: targetIssue,
+            title: targetIssue?.title || prev.title || data.project.title
+          };
+        });
         if (Array.isArray(data.project.updates)) {
           setProjectUpdates(data.project.updates);
         }
@@ -374,11 +386,10 @@ function IndustryDashboardPage() {
                 <button
                   key={item.id}
                   onClick={() => setActiveView(item.id)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
-                    isActive
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${isActive
                       ? 'bg-[#2F36ED]/10 text-[#2F36ED] border-r-4 border-[#2F36ED] font-bold shadow-2xs'
                       : 'text-[#454556] hover:text-[#2F36ED] hover:bg-[#F1F3F5] hover:translate-x-1'
-                  }`}
+                    }`}
                 >
                   <span
                     className="material-symbols-outlined text-[20px]"
@@ -419,7 +430,7 @@ function IndustryDashboardPage() {
                   </p>
                 </div>
                 <div className="flex gap-3">
-                  <button 
+                  <button
                     onClick={() => setActiveView('challenges')}
                     className="bg-[#2F36ED] text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-800 transition-all shadow-xs flex items-center gap-2 cursor-pointer"
                   >
@@ -430,7 +441,7 @@ function IndustryDashboardPage() {
 
               {/* 4 KPI Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div 
+                <div
                   onClick={() => setActiveView('my_proposals')}
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#2F36ED] transition-all cursor-pointer group"
                 >
@@ -445,7 +456,7 @@ function IndustryDashboardPage() {
                   </div>
                 </div>
 
-                <div 
+                <div
                   onClick={() => setActiveView('projects')}
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#2F36ED] transition-all cursor-pointer group"
                 >
@@ -460,7 +471,7 @@ function IndustryDashboardPage() {
                   </div>
                 </div>
 
-                <div 
+                <div
                   onClick={() => setActiveView('challenges')}
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#2F36ED] transition-all cursor-pointer group"
                 >
@@ -475,7 +486,7 @@ function IndustryDashboardPage() {
                   </div>
                 </div>
 
-                <div 
+                <div
                   onClick={() => setActiveView('my_proposals')}
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#F36F56] transition-all cursor-pointer group"
                 >
@@ -1202,9 +1213,9 @@ function IndustryDashboardPage() {
                             if (!isNaN(d.getTime())) {
                               dateStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
                             }
-                          } catch (e) {}
+                          } catch (e) { }
                         }
-                        const authorStr = typeof upd.postedBy === 'object' ? (upd.postedBy?.fullName || 'Project Lead') : (upd.author || 'TechCorp CSR Lead');
+                        const authorStr = typeof upd.postedBy === 'object' && upd.postedBy !== null ? (upd.postedBy?.fullName || 'Project Lead') : (upd.author || 'TechCorp CSR Lead');
                         const mediaList = upd.media || (upd.attachment ? [{ originalName: upd.attachment }] : []);
 
                         return (
@@ -1280,20 +1291,18 @@ function IndustryDashboardPage() {
                     return (
                       <div
                         key={prop._id}
-                        className={`bg-white border ${
-                          isAccepted ? 'border-emerald-400 bg-emerald-50/10 shadow-md ring-1 ring-emerald-300' :
-                          isRejected ? 'border-red-200 bg-red-50/10' :
-                          'border-[#DFE3E8] shadow-xs'
-                        } rounded-2xl p-6 flex flex-col justify-between space-y-4 transition-all`}
+                        className={`bg-white border ${isAccepted ? 'border-emerald-400 bg-emerald-50/10 shadow-md ring-1 ring-emerald-300' :
+                            isRejected ? 'border-red-200 bg-red-50/10' :
+                              'border-[#DFE3E8] shadow-xs'
+                          } rounded-2xl p-6 flex flex-col justify-between space-y-4 transition-all`}
                       >
                         <div>
                           <div className="flex justify-between items-start mb-2 gap-2">
                             <h3 className="text-base font-bold text-[#0F172A] flex-1">{prop.title}</h3>
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase shrink-0 ${
-                              isAccepted ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
-                              isRejected ? 'bg-red-100 text-red-700 border border-red-200' :
-                              'bg-blue-100 text-blue-700 border border-blue-200'
-                            }`}>
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase shrink-0 ${isAccepted ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                                isRejected ? 'bg-red-100 text-red-700 border border-red-200' :
+                                  'bg-blue-100 text-blue-700 border border-blue-200'
+                              }`}>
                               {isAccepted ? 'ACCEPTED BY UNIVERSITY' : isRejected ? 'DECLINED' : prop.status}
                             </span>
                           </div>

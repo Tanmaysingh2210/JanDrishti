@@ -43,6 +43,10 @@ function GovtDashboardPage() {
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [acceptingProposalId, setAcceptingProposalId] = useState(null);
 
+  // Selected University, Industry, & Updates states for Govt Challenge Detail
+  const [govtProjectDetail, setGovtProjectDetail] = useState(null);
+  const [govtIndustryProposal, setGovtIndustryProposal] = useState(null);
+
   useEffect(() => {
     fetchUniversities();
     fetchChallenges();
@@ -266,7 +270,46 @@ function GovtDashboardPage() {
   const openChallengeDetail = (challenge) => {
     setSelectedChallenge(challenge);
     setActiveView('challenge_detail');
-    fetchProposalsForIssue(challenge._id || challenge.id);
+    const issueId = challenge._id || challenge.id;
+    fetchProposalsForIssue(issueId);
+    fetchProjectDetailForGovt(issueId);
+  };
+
+  const fetchProjectDetailForGovt = async (issueId) => {
+    if (!issueId) return;
+    try {
+      const res = await fetch(`http://localhost:3000/api/projects/${issueId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.project) {
+        setGovtProjectDetail(data.project);
+      } else {
+        setGovtProjectDetail(null);
+      }
+    } catch (err) {
+      console.error('Error fetching project detail for govt:', err);
+      setGovtProjectDetail(null);
+    }
+
+    try {
+      const resInd = await fetch('http://localhost:3000/api/industry/proposals/all', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const dataInd = await resInd.json();
+      if (resInd.ok && dataInd.success && Array.isArray(dataInd.proposals)) {
+        const matchingInd = dataInd.proposals.find(p =>
+          (p.issueId?._id || p.issueId) === issueId || (p.projectId?._id || p.projectId) === issueId
+        );
+        setGovtIndustryProposal(matchingInd || null);
+      }
+    } catch (err) {
+      console.error('Error fetching industry proposals for govt:', err);
+    }
   };
 
   const fetchProposalsForIssue = async (issueId) => {
@@ -840,103 +883,263 @@ function GovtDashboardPage() {
                 </div>
               </div>
 
-              {/* MAIN CONTENT 2-COLUMN GRID */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* LEFT COLUMN (2/3 Width): Details, Media, Geolocation */}
-                <div className="lg:col-span-2 space-y-6">
-                  {/* Detailed Description */}
-                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-3">
-                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#F36F56]">description</span>
-                      Challenge Description &amp; Specifications
-                    </h3>
-                    <p className="text-sm text-[#58423d] leading-relaxed">
-                      {selectedChallenge.description}
-                    </p>
-                  </div>
+              {/* STACKED FULL-WIDTH SECTIONS */}
+              <div className="space-y-6">
+                {/* 1. DETAILED DESCRIPTION CARD */}
+                <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-3">
+                  <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F36F56]">description</span>
+                    Challenge Description &amp; Specifications
+                  </h3>
+                  <p className="text-sm text-[#58423d] leading-relaxed">
+                    {selectedChallenge.description}
+                  </p>
+                </div>
 
-                  {/* MEDIA GALLERY */}
-                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
-                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#F36F56]">photo_library</span>
-                      Media Gallery (Field Inspections &amp; Photos)
-                    </h3>
+                {/* 2. MEDIA GALLERY CARD */}
+                <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                  <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F36F56]">photo_library</span>
+                    Media Gallery (Field Inspections &amp; Photos)
+                  </h3>
 
-                    {((selectedChallenge.photos?.length || 0) + (selectedChallenge.videos?.length || 0)) === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-10 text-[#58423d] bg-[#f8f9fb] rounded-xl border border-[#e0e3e5]">
-                        <span className="material-symbols-outlined text-4xl text-[#e0e3e5] mb-2">image_not_supported</span>
-                        <p className="text-xs font-semibold">No media uploaded by citizen</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {(selectedChallenge.photos || []).map((photo, idx) => (
-                          <div key={photo._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
-                            <a href={photo.url} target="_blank" rel="noopener noreferrer" className="block">
-                              <img
-                                src={photo.url}
-                                alt={`Citizen Photo ${idx + 1}`}
-                                className="w-full h-40 object-cover rounded-lg mb-2 hover:opacity-90 transition-opacity"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'flex';
-                                }}
-                              />
-                              <div style={{ display: 'none' }} className="w-full h-40 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2">
-                                <span className="material-symbols-outlined text-4xl text-[#F36F56] mb-1">broken_image</span>
-                                <span className="text-xs font-bold">Image failed to load</span>
-                              </div>
-                            </a>
-                            <span className="text-xs font-semibold text-[#191c1e]">Geotagged Photo #{idx + 1}</span>
-                            <p className="text-[11px] text-[#58423d]">Captured by Citizen</p>
-                          </div>
-                        ))}
-                        {(selectedChallenge.videos || []).map((video, idx) => (
-                          <div key={video._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
-                            <a href={video.url} target="_blank" rel="noopener noreferrer" className="block">
-                              <div className="w-full h-40 bg-slate-800 rounded-lg flex flex-col items-center justify-center mb-2 hover:opacity-90 transition-opacity">
-                                <span className="material-symbols-outlined text-4xl text-white mb-1">play_circle</span>
-                                <span className="text-xs font-bold text-white">Click to Play Video</span>
-                              </div>
-                            </a>
-                            <span className="text-xs font-semibold text-[#191c1e]">Location Video Log #{idx + 1}</span>
-                            <p className="text-[11px] text-[#58423d]">Submitted by Citizen</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  {((selectedChallenge.photos?.length || 0) + (selectedChallenge.videos?.length || 0)) === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-[#58423d] bg-[#f8f9fb] rounded-xl border border-[#e0e3e5]">
+                      <span className="material-symbols-outlined text-4xl text-[#e0e3e5] mb-2">image_not_supported</span>
+                      <p className="text-xs font-semibold">No media uploaded by citizen</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {(selectedChallenge.photos || []).map((photo, idx) => (
+                        <div key={photo._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                          <a href={photo.url} target="_blank" rel="noopener noreferrer" className="block">
+                            <img
+                              src={photo.url}
+                              alt={`Citizen Photo ${idx + 1}`}
+                              className="w-full h-40 object-cover rounded-lg mb-2 hover:opacity-90 transition-opacity"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                            <div style={{ display: 'none' }} className="w-full h-40 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2">
+                              <span className="material-symbols-outlined text-4xl text-[#F36F56] mb-1">broken_image</span>
+                              <span className="text-xs font-bold">Image failed to load</span>
+                            </div>
+                          </a>
+                          <span className="text-xs font-semibold text-[#191c1e]">Geotagged Photo #{idx + 1}</span>
+                          <p className="text-[11px] text-[#58423d]">Captured by Citizen</p>
+                        </div>
+                      ))}
+                      {(selectedChallenge.videos || []).map((video, idx) => (
+                        <div key={video._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                          <a href={video.url} target="_blank" rel="noopener noreferrer" className="block">
+                            <div className="w-full h-40 bg-slate-800 rounded-lg flex flex-col items-center justify-center mb-2 hover:opacity-90 transition-opacity">
+                              <span className="material-symbols-outlined text-4xl text-white mb-1">play_circle</span>
+                              <span className="text-xs font-bold text-white">Click to Play Video</span>
+                            </div>
+                          </a>
+                          <span className="text-xs font-semibold text-[#191c1e]">Location Video Log #{idx + 1}</span>
+                          <p className="text-[11px] text-[#58423d]">Submitted by Citizen</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
+                {/* 3. LOCATION & GEOTAG DETAILS CARD */}
+                <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                  <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F36F56]">location_on</span>
+                    Location &amp; Geotag Details
+                  </h3>
 
-                  {/* LOCATION & GEOTAG */}
-                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
-                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#F36F56]">location_on</span>
-                      Location &amp; Geotag Details
-                    </h3>
-
-                    <div className="bg-[#f8f9fb] p-4 rounded-xl border border-[#e0e3e5] grid grid-cols-2 gap-4 text-xs">
-                      <div>
-                        <span className="text-[#58423d]">Street Address:</span>
-                        <p className="font-bold text-[#191c1e]">{selectedChallenge.location?.address || 'Main Campus Road'}</p>
-                      </div>
-                      <div>
-                        <span className="text-[#58423d]">District &amp; State:</span>
-                        <p className="font-bold text-[#191c1e]">{selectedChallenge.location?.district || 'Ranchi'}, {selectedChallenge.location?.state || 'Jharkhand'}</p>
-                      </div>
-                      <div>
-                        <span className="text-[#58423d]">GPS Coordinates:</span>
-                        <p className="font-mono font-bold text-[#262ce7]">23.3441° N, 85.3096° E</p>
-                      </div>
-                      <div>
-                        <span className="text-[#58423d]">Zone Jurisdiction:</span>
-                        <p className="font-bold text-[#191c1e]">Ranchi Municipal Corporation</p>
-                      </div>
+                  <div className="bg-[#f8f9fb] p-4 rounded-xl border border-[#e0e3e5] grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+                    <div>
+                      <span className="text-[#58423d]">Street Address:</span>
+                      <p className="font-bold text-[#191c1e]">{selectedChallenge.location?.address || 'Main Campus Road'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[#58423d]">District &amp; State:</span>
+                      <p className="font-bold text-[#191c1e]">{selectedChallenge.location?.district || 'Ranchi'}, {selectedChallenge.location?.state || 'Jharkhand'}</p>
+                    </div>
+                    <div>
+                      <span className="text-[#58423d]">GPS Coordinates:</span>
+                      <p className="font-mono font-bold text-[#262ce7]">23.3441° N, 85.3096° E</p>
+                    </div>
+                    <div>
+                      <span className="text-[#58423d]">Zone Jurisdiction:</span>
+                      <p className="font-bold text-[#191c1e]">Ranchi Municipal Corporation</p>
                     </div>
                   </div>
                 </div>
 
-                {/* UNIVERSITY PROPOSALS FULL-WIDTH SECTION */}
-                <div className="lg:col-span-3 bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                {/* 4. DYNAMIC PARTNERS GRID (2-COLUMN FOR SELECTED UNIVERSITY & SELECTED INDUSTRY) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* SELECTED UNIVERSITY PARTNER CARD */}
+                  {(() => {
+                    const acceptedProp = issueProposals.find(p => p.status === 'accepted');
+                    const univObj = acceptedProp?.universityId || govtProjectDetail?.universityId || selectedChallenge.assignedUniversityId || selectedChallenge.assignedUniversity;
+                    const univName = univObj?.name || (acceptedProp ? 'Birla Institute of Technology (BIT Mesra)' : null);
+                    
+                    return (
+                      <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-extrabold text-[#191c1e] flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[#2F36ED] text-xl">account_balance</span>
+                            Selected University Partner
+                          </h3>
+                          {univName ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300">
+                              Assigned
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-300">
+                              Pending Selection
+                            </span>
+                          )}
+                        </div>
+
+                        {univName ? (
+                          <div className="bg-[#f8f9fb] p-4 rounded-xl border border-[#e0e3e5] space-y-3 text-xs">
+                            <div>
+                              <p className="font-extrabold text-[#191c1e] text-sm">{univName}</p>
+                              <p className="text-[11px] text-[#58423d]">{univObj?.code || 'UNIV-R&D'} · {univObj?.district || 'Ranchi, Jharkhand'}</p>
+                              <p className="text-[11px] text-[#2F36ED] font-semibold">{univObj?.email || 'rd.cell@univ.edu.in'}</p>
+                            </div>
+
+                            {acceptedProp && (
+                              <div className="pt-2 border-t border-[#e0e3e5] space-y-2">
+                                <span className="text-[10px] font-bold text-[#58423d] uppercase tracking-wider block">Approved Solution Proposal</span>
+                                <p className="font-bold text-[#191c1e]">{acceptedProp.title}</p>
+                                <p className="text-[#58423d] text-[11px] line-clamp-2 leading-relaxed">{acceptedProp.solutionDescription}</p>
+
+                                <div className="grid grid-cols-2 gap-2 pt-1">
+                                  <div className="bg-white p-2 rounded-lg border border-[#e0e3e5]">
+                                    <span className="text-[10px] text-[#58423d] block">Est. Budget</span>
+                                    <span className="font-bold text-[#2F36ED]">₹{acceptedProp.estimatedCost?.toLocaleString('en-IN') || '18,50,000'}</span>
+                                  </div>
+                                  <div className="bg-white p-2 rounded-lg border border-[#e0e3e5]">
+                                    <span className="text-[10px] text-[#58423d] block">Duration</span>
+                                    <span className="font-bold text-[#191c1e]">{acceptedProp.timelineMonths || 8} Months</span>
+                                  </div>
+                                </div>
+
+                                {acceptedProp.facultyInformation?.[0] && (
+                                  <div className="text-[11px] text-[#58423d] pt-1">
+                                    <strong>Faculty Lead:</strong> {acceptedProp.facultyInformation[0].name} ({acceptedProp.facultyInformation[0].designation || 'Professor'})
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
+                            <p className="font-bold">No University Assigned Yet</p>
+                            <p className="text-[11px]">Review the submitted proposals below and click "Accept Proposal" to assign an academic team.</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* SELECTED INDUSTRY CSR PARTNER CARD */}
+                  {(() => {
+                    const indProp = govtIndustryProposal;
+                    const indCompName = indProp?.industryId?.companyName || indProp?.companyName || (govtProjectDetail?.acceptedProposalId ? 'TechCorp CSR Foundation' : null);
+                    
+                    return (
+                      <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-extrabold text-[#191c1e] flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[#F36F56] text-xl">factory</span>
+                            Selected Industry CSR Partner
+                          </h3>
+                          {indCompName ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300">
+                              Co-Funded
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-[#58423d] text-[10px] font-bold border border-slate-300">
+                              Open for CSR
+                            </span>
+                          )}
+                        </div>
+
+                        {indCompName ? (
+                          <div className="bg-[#f8f9fb] p-4 rounded-xl border border-[#e0e3e5] space-y-3 text-xs">
+                            <div>
+                              <p className="font-extrabold text-[#191c1e] text-sm">{indCompName}</p>
+                              <p className="text-[11px] text-[#58423d]">{indProp?.offeringType || 'Financial Grant & IoT Sensors'}</p>
+                              <p className="text-[11px] text-[#F36F56] font-semibold">{indProp?.industryId?.email || 'csr@industry.org'}</p>
+                            </div>
+
+                            <div className="pt-2 border-t border-[#e0e3e5] space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-[#58423d] uppercase tracking-wider">CSR Pledged Funding</span>
+                                <span className="font-extrabold text-[#F36F56] text-sm">
+                                  ₹{(indProp?.estimatedValue || indProp?.pledgedAmount || 1500000).toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                              <p className="text-[#58423d] text-[11px] leading-relaxed">
+                                {indProp?.description || 'TechCorp CSR Foundation offers ₹15L grant funding and technical equipment to support university deployment.'}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-[#58423d] space-y-1">
+                            <p className="font-bold text-[#191c1e]">Awaiting Industry CSR Co-Funding</p>
+                            <p className="text-[11px]">Once assigned to a University, CSR corporate partners can pledge grant co-funding directly.</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 5. PROJECT PROGRESS UPDATES & MILESTONE TIMELINE STREAM CARD */}
+                <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-emerald-600 text-xl">update</span>
+                      Project Progress Updates &amp; Logs Stream
+                    </h3>
+                    {govtProjectDetail?.updates?.length > 0 && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
+                        {govtProjectDetail.updates.length} Updates Posted
+                      </span>
+                    )}
+                  </div>
+
+                  {(!govtProjectDetail?.updates || govtProjectDetail.updates.length === 0) ? (
+                    <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl text-xs text-[#58423d] text-center space-y-1">
+                      <span className="material-symbols-outlined text-3xl text-slate-400">pending_actions</span>
+                      <p className="font-bold text-[#191c1e] text-sm">No Progress Updates Posted Yet</p>
+                      <p className="text-[11px]">As the University R&amp;D team logs deployment milestones, progress logs will appear here live in real time.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {govtProjectDetail.updates.map((upd, idx) => (
+                        <div key={upd._id || idx} className="p-4 bg-[#f8f9fb] rounded-xl border border-[#e0e3e5] space-y-2 text-xs">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-bold text-[#191c1e] text-sm">{upd.title}</p>
+                            <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold uppercase tracking-wider shrink-0">
+                              {upd.milestone || 'In Progress'}
+                            </span>
+                          </div>
+                          <p className="text-[#58423d] leading-relaxed">{upd.description}</p>
+                          <div className="flex justify-between items-center text-[11px] text-[#58423d] pt-2 border-t border-[#e0e3e5]">
+                            <span>Posted by: <strong>{(typeof upd.postedBy === 'object' && upd.postedBy !== null) ? (upd.postedBy.fullName || upd.postedBy.email || 'University R&D Team') : (upd.postedBy || 'University R&D Team')}</strong></span>
+                            <span>{upd.createdAt ? new Date(upd.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 6. UNIVERSITY PROPOSALS & GOVERNMENT APPROVAL SECTION */}
+                <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
                       <span className="material-symbols-outlined text-[#2F36ED]">assignment_turned_in</span>
