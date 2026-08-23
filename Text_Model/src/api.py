@@ -12,6 +12,7 @@ if str(SRC_DIR) not in sys.path:
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 import pipeline
@@ -28,6 +29,14 @@ except FileNotFoundError:
 WRITE_LOCK = threading.Lock()
 
 app = FastAPI(title="JanDrishti ML Service")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ComplaintIn(BaseModel):

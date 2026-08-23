@@ -9,22 +9,32 @@ const __dirname = path.dirname(__filename);
 
 // Map model output labels -> DB category enum
 const LABEL_MAP = {
+  "electric / solar energy": "electricity",
+  "energy": "electricity",
+  "electricity": "electricity",
   "road infrastructure": "roads_traffic",
   "roads": "roads_traffic",
+  "roads_traffic": "roads_traffic",
   "traffic": "roads_traffic",
+  "urban development": "roads_traffic",
   "waste management": "sanitation",
   "sanitation": "sanitation",
   "water": "water_management",
   "water management": "water_management",
-  "electric / solar energy": "electricity",
-  "energy": "electricity",
-  "electricity": "electricity",
+  "water_management": "water_management",
+  "water related": "water_management",
   "digital infrastructure": "infrastructure",
   "infrastructure": "infrastructure",
+  "accessibility": "infrastructure",
   "education": "education",
   "health": "health",
+  "healthcare": "health",
   "environment": "environment",
+  "public administration": "social",
+  "rural livelihood": "social",
   "social": "social",
+  "agriculture": "environment",
+  "other": "other",
 };
 
 // ==========================================
@@ -51,51 +61,30 @@ export const uploadEvidence = async (req, res) => {
       ? "jandrishti/citizen/videos"
       : "jandrishti/citizen/photos";
 
-    const result = await new Promise(
-      (resolve, reject) => {
-
-        const uploadStream =
-          cloudinary.uploader.upload_stream(
-            {
-              resource_type: resourceType,
-              folder,
-            },
-
-            (error, result) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(result);
-              }
-            }
-          );
-
-        uploadStream.end(req.file.buffer);
-      }
-    );
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          resource_type: resourceType,
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
+    });
 
     return res.status(200).json({
       success: true,
-      message: "Evidence uploaded successfully",
-
-      file: {
-        url: result.secure_url,
-        publicId: result.public_id,
-        type: isVideo ? "video" : "image",
-        originalName: req.file.originalname,
-      },
+      url: result.secure_url,
+      publicId: result.public_id,
     });
-
   } catch (error) {
-
-    console.error(
-      "Cloudinary Upload Error:",
-      error
-    );
-
+    console.error("Upload evidence error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to upload evidence",
+      message: "Failed to upload evidence file",
     });
   }
 };
@@ -117,34 +106,87 @@ export const classifyIssue = async (req, res) => {
     }
 
     const text = `${title || ""} ${description || ""}`.trim();
+    let rawLabel = "other";
 
-    const predictScript = path.resolve(
-      __dirname,
-      "../../Text_Model/src/predict.py"
-    );
-
-    const result = await new Promise((resolve, reject) => {
-      const py = spawn("python", [predictScript, text]);
-
-      let stdout = "";
-      let stderr = "";
-
-      py.stdout.on("data", (d) => (stdout += d.toString()));
-      py.stderr.on("data", (d) => (stderr += d.toString()));
-
-      py.on("close", (code) => {
-        if (code !== 0) {
-          reject(new Error(stderr || "predict.py exited with code " + code));
-        } else {
-          resolve(stdout.trim());
-        }
+    // 1. Try FastAPI ML Service running on http://127.0.0.1:8000/analyze first
+    try {
+      const mlRes = await fetch("http://127.0.0.1:8000/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
       });
-    });
+      if (mlRes.ok) {
+        const mlData = await mlRes.json();
+        if (mlData && mlData.category) {
+          rawLabel = mlData.category.trim().toLowerCase();
+        }
+      }
+    } catch (apiErr) {
+      // FastAPI port 8000 not reachable, fallback to predict.py script
+    }
 
-    // Output format: "Category: label"
-    const match = result.match(/Category:\s*(.+)/i);
-    const rawLabel = match ? match[1].trim().toLowerCase() : "other";
-    const dbCategory = LABEL_MAP[rawLabel] || "other";
+    // 2. Fallback to predict.py python process if FastAPI service didn't return a category
+    if (rawLabel === "other") {
+      try {
+        const predictScript = path.resolve(
+          __dirname,
+          "../../Text_Model/src/predict.py"
+        );
+
+        const result = await new Promise((resolve, reject) => {
+          const py = spawn("python", [predictScript, text]);
+
+          let stdout = "";
+          let stderr = "";
+
+          py.stdout.on("data", (d) => (stdout += d.toString()));
+          py.stderr.on("data", (d) => (stderr += d.toString()));
+
+          py.on("close", (code) => {
+            if (code !== 0) {
+              reject(new Error(stderr || "predict.py exited with code " + code));
+            } else {
+              resolve(stdout.trim());
+            }
+          });
+        });
+
+        const match = result.match(/Category:\s*(.+)/i);
+        if (match) {
+          rawLabel = match[1].trim().toLowerCase();
+        }
+      } catch (pyErr) {
+        console.error("Predict script fallback error:", pyErr.message);
+      }
+    }
+
+    let dbCategory = "other";
+    const cleanRaw = (rawLabel || "").trim().toLowerCase();
+    const MODEL_CATEGORIES = [
+      "accessibility",
+      "agriculture",
+      "education",
+      "energy",
+      "environment",
+      "healthcare",
+      "public administration",
+      "rural livelihood",
+      "urban development",
+      "water related",
+      "other",
+    ];
+
+    if (MODEL_CATEGORIES.includes(cleanRaw)) {
+      dbCategory = cleanRaw;
+    } else {
+      if (cleanRaw === "electric / solar energy" || cleanRaw === "electricity") dbCategory = "energy";
+      else if (cleanRaw === "roads_traffic" || cleanRaw === "roads" || cleanRaw === "traffic") dbCategory = "urban development";
+      else if (cleanRaw === "water_management" || cleanRaw === "water") dbCategory = "water related";
+      else if (cleanRaw === "sanitation" || cleanRaw === "waste management") dbCategory = "urban development";
+      else if (cleanRaw === "health") dbCategory = "healthcare";
+      else if (cleanRaw === "social") dbCategory = "public administration";
+      else if (cleanRaw === "infrastructure" || cleanRaw === "digital infrastructure") dbCategory = "accessibility";
+    }
 
     return res.status(200).json({
       success: true,
