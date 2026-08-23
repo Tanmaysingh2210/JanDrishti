@@ -324,19 +324,6 @@ function IndustryDashboardPage() {
           </span>
         </div>
 
-        {/* Global Live Search */}
-        <div className="flex-1 max-w-md mx-6 relative hidden sm:block">
-          <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-[#767588] text-[20px]">
-            search
-          </span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search opportunities, CSR funds, projects..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl border border-[#DFE3E8] bg-[#F1F3F5] focus:bg-white focus:border-[#2F36ED] focus:ring-2 focus:ring-[#2F36ED]/20 outline-none transition-all text-xs text-[#0F172A] placeholder-[#767588]"
-          />
-        </div>
 
         {/* Trailing Actions */}
         <div className="flex items-center gap-3">
@@ -437,12 +424,6 @@ function IndustryDashboardPage() {
                     className="bg-[#2F36ED] text-white px-4 py-2.5 rounded-xl text-xs font-bold hover:bg-blue-800 transition-all shadow-xs flex items-center gap-2 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[18px]">explore</span> Browse Opportunities
-                  </button>
-                  <button 
-                    onClick={() => setIsInitiativeModalOpen(true)}
-                    className="bg-[#F36F56] text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-[#d95d46] transition-all shadow-md shadow-[#F36F56]/20 flex items-center gap-2 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">add</span> New Initiative
                   </button>
                 </div>
               </div>
