@@ -89,9 +89,12 @@ function IndustryRegistrationPage() {
         throw new Error(data.message || 'Industry registration failed.');
       }
 
-      setSuccessMsg('Industry account created successfully! Redirecting to login...');
+      setSuccessMsg('Industry account created successfully! Redirecting to your dashboard...');
+      localStorage.setItem('jandrishti_user_role', 'industry');
+      localStorage.setItem('jandrishti_user_info', JSON.stringify(data.industry || {}));
+
       setTimeout(() => {
-        navigate('/login');
+        navigate('/industry-dashboard');
       }, 2000);
     } catch (err) {
       setError(err.message || 'Connection error. Please try again.');

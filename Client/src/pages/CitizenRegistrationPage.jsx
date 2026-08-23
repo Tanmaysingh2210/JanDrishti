@@ -82,13 +82,15 @@ function CitizenRegistrationPage() {
         throw new Error(data.message || 'Registration failed');
       }
 
-      setSuccessMsg('Account created successfully! Redirecting...');
+      setSuccessMsg('Account created successfully! Redirecting to your dashboard...');
       if (data.token) {
-        localStorage.setItem('citizen_token', data.token);
+        localStorage.setItem('jandrishti_token', data.token);
       }
+      localStorage.setItem('jandrishti_user_role', 'citizen');
+      localStorage.setItem('jandrishti_user_info', JSON.stringify(data.citizen || {}));
 
       setTimeout(() => {
-        navigate('/login');
+        navigate('/citizen-home');
       }, 2000);
     } catch (err) {
       setError(err.message || 'Failed to connect to the server');

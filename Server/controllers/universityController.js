@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 
 import University from "../models/university.js";
 import UniversityUser from "../models/universityUser.js";
+import { generateUniversityToken, setUniversityCookie } from "./universityAuthController.js";
 
 
 // =====================================================
@@ -257,21 +258,21 @@ export const registerUniversity = async (req, res) => {
       isVerified: true,
     });
 
+    const token = generateUniversityToken(universityUser);
+    setUniversityCookie(res, token);
+
     return res.status(201).json({
       success: true,
-      message: "University registration completed successfully! You can now log in.",
-      university: {
-        id: university._id,
-        name: university.name,
-        code: university.code,
-        email: university.email,
-        isApproved: university.isApproved,
-      },
-      representative: {
+      message: "University registration completed successfully!",
+      user: {
         id: universityUser._id,
-        name: universityUser.fullName,
+        universityId: university._id,
+        universityName: university.name,
+        universityCode: university.code,
+        fullName: universityUser.fullName,
         email: universityUser.email,
         role: universityUser.role,
+        departmentId: universityUser.departmentId,
       },
     });
   } catch (error) {

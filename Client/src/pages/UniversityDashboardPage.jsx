@@ -12,6 +12,14 @@ function UniversityDashboardPage() {
   const [isGrantModalOpen, setIsGrantModalOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  // Current logged-in user state (fetched from /me endpoint)
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('jandrishti_user_info') || 'null');
+    } catch { return null; }
+  });
+  const [currentUniversity, setCurrentUniversity] = useState(null);
+
   const profileDropdownRef = useRef(null);
 
   // Dynamic API State
@@ -29,11 +37,11 @@ function UniversityDashboardPage() {
     solutionDescription: '',
     estimatedCost: '450000',
     timelineMonths: '6',
-    facultyName: 'Prof. A. K. Sharma',
-    facultyDesignation: 'Professor & HOD',
-    facultyDepartment: 'Computer Science & Engineering',
-    leadStudentName: 'Aarav Gupta',
-    leadStudentEmail: 'aarav.g@iit.ac.in',
+    facultyName: '',
+    facultyDesignation: '',
+    facultyDepartment: '',
+    leadStudentName: '',
+    leadStudentEmail: '',
     pdfFile: null,
   });
 
@@ -57,6 +65,7 @@ function UniversityDashboardPage() {
   useEffect(() => {
     fetchChallenges();
     fetchProposals();
+    fetchCurrentUser();
 
     const handleClickOutside = (event) => {
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
@@ -66,6 +75,41 @@ function UniversityDashboardPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const token = localStorage.getItem('jandrishti_token');
+      const res = await fetch('http://localhost:3000/api/university/auth/me', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.user) {
+        const u = data.user;
+        setCurrentUser(u);
+        // universityId is populated by .populate() so may be an object
+        if (u.universityId && typeof u.universityId === 'object') {
+          setCurrentUniversity(u.universityId);
+        }
+        // Update localStorage with fresh data
+        localStorage.setItem('jandrishti_user_info', JSON.stringify(u));
+        // Pre-fill proposal form defaults with real user
+        setProposalForm((prev) => ({
+          ...prev,
+          facultyName: u.fullName || '',
+          facultyDesignation: u.designation || '',
+          facultyDepartment: u.universityId?.name || '',
+          leadStudentEmail: u.email || '',
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching current university user:', err);
+    }
+  };
 
   const fetchChallenges = async () => {
     setLoadingChallenges(true);
@@ -118,18 +162,12 @@ function UniversityDashboardPage() {
 
   const openChallengeDetail = (challenge) => {
     setSelectedChallenge(challenge);
-    setProposalForm({
+    setProposalForm((prev) => ({
+      ...prev,
       title: `R&D Solution for ${challenge.title}`,
       solutionDescription: '',
-      estimatedCost: '450000',
-      timelineMonths: '6',
-      facultyName: 'Prof. A. K. Sharma',
-      facultyDesignation: 'Professor & HOD',
-      facultyDepartment: 'Computer Science & Engineering',
-      leadStudentName: 'Aarav Gupta',
-      leadStudentEmail: 'aarav.g@iit.ac.in',
       pdfFile: null,
-    });
+    }));
     setActiveView('challenge_detail');
   };
 
@@ -282,11 +320,16 @@ function UniversityDashboardPage() {
               className="flex items-center gap-3 hover:bg-[#f8f9fb] p-1.5 rounded-xl border border-[#e0e3e5] cursor-pointer transition-all shadow-sm"
             >
               <div className="flex flex-col items-end pl-2">
-                <span className="text-xs text-[#191c1e] font-bold">IIT Innovation Lab</span>
-                <span className="text-[10px] uppercase font-semibold text-[#2F36ED]">Faculty Admin</span>
+                <span className="text-xs text-[#191c1e] font-bold">
+                  {currentUniversity?.name || currentUser?.universityId?.name || currentUser?.fullName || 'University'}
+                </span>
+                <span className="text-[10px] uppercase font-semibold text-[#2F36ED]">
+                  {currentUser?.designation || currentUser?.role?.replace('_', ' ') || 'University Admin'}
+                </span>
               </div>
               <div className="w-9 h-9 rounded-full bg-[#2F36ED] text-white flex items-center justify-center font-bold text-xs shadow-sm">
-                IIT
+                {(currentUniversity?.name || currentUser?.universityId?.name || currentUser?.fullName || 'U')
+                  .split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
               </div>
               <span className="material-symbols-outlined text-[#58423d] text-base pr-1">
                 {showProfileMenu ? 'expand_less' : 'expand_more'}
@@ -297,10 +340,15 @@ function UniversityDashboardPage() {
             {showProfileMenu && (
               <div className="absolute right-0 mt-2 w-60 bg-white border border-[#e0e3e5] rounded-2xl shadow-xl z-50 py-2 divide-y divide-[#e0e3e5] animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-4 py-3 bg-[#f8f9fb] rounded-t-2xl">
-                  <p className="text-xs font-extrabold text-[#191c1e]">IIT Innovation Lab</p>
-                  <p className="text-[11px] text-[#58423d]">faculty@iit.ac.in</p>
+                  <p className="text-xs font-extrabold text-[#191c1e]">
+                    {currentUser?.fullName || 'University Admin'}
+                  </p>
+                  <p className="text-[10px] text-[#58423d] font-medium">
+                    {currentUser?.designation || 'Representative'}
+                  </p>
+                  <p className="text-[11px] text-[#58423d]">{currentUser?.email || ''}</p>
                   <span className="inline-block mt-1 px-2 py-0.5 rounded bg-[#2F36ED]/10 text-[#2F36ED] text-[10px] font-bold">
-                    University Partner
+                    {currentUniversity?.name || currentUser?.universityId?.name || 'University Partner'}
                   </span>
                 </div>
 
@@ -330,8 +378,9 @@ function UniversityDashboardPage() {
                 <div className="py-1">
                   <button
                     onClick={() => {
-                      localStorage.removeItem('token');
-                      localStorage.removeItem('user');
+                      localStorage.removeItem('jandrishti_token');
+                      localStorage.removeItem('jandrishti_user_role');
+                      localStorage.removeItem('jandrishti_user_info');
                       navigate('/login');
                     }}
                     className="w-full text-left px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors cursor-pointer"

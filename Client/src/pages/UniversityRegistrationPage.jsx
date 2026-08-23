@@ -61,7 +61,7 @@ function UniversityRegistrationPage() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/university/request-approval', {
+      const response = await fetch('http://localhost:3000/api/university/auth/request-approval', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -95,7 +95,7 @@ function UniversityRegistrationPage() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/university/check-status', {
+      const response = await fetch('http://localhost:3000/api/university/auth/check-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -149,7 +149,7 @@ function UniversityRegistrationPage() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3000/api/university/register', {
+      const response = await fetch('http://localhost:3000/api/university/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -162,9 +162,14 @@ function UniversityRegistrationPage() {
         throw new Error(data.message || 'Final registration failed.');
       }
 
-      setSuccessMsg('University account created & representative configured! Redirecting to login...');
+      setSuccessMsg('University account created & representative configured! Redirecting to dashboard...');
+      
+      // Store auth session
+      localStorage.setItem('jandrishti_user_role', 'univ');
+      localStorage.setItem('jandrishti_user_info', JSON.stringify(data.user || {}));
+
       setTimeout(() => {
-        navigate('/login');
+        navigate('/university-dashboard');
       }, 2000);
     } catch (err) {
       setError(err.message || 'Connection error. Please try again.');

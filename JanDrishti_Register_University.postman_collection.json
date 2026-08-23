@@ -27,7 +27,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:3000/api/university/register",
+					"raw": "http://localhost:3000/api/university/auth/register",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -36,6 +36,7 @@
 					"path": [
 						"api",
 						"university",
+						"auth",
 						"register"
 					]
 				},
