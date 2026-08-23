@@ -9,10 +9,12 @@ function CitizenHomePage() {
   const cameraInputRef = useRef(null);
 
   const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('home');
   const [showReportModal, setShowReportModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [filterCategory, setFilterCategory] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [issues, setIssues] = useState([]);
   const [loadingIssues, setLoadingIssues] = useState(false);
 
@@ -308,185 +310,482 @@ function CitizenHomePage() {
         {/* SCROLLABLE CANVAS */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8">
           <div className="max-w-[1280px] mx-auto space-y-8">
-            {/* HERO SECTION */}
-            <section className="bg-white rounded-2xl border border-[#e0e3e5] overflow-hidden relative shadow-sm">
-              <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 100% 0%, #f36f56 0%, transparent 40%)' }}></div>
-              <div className="p-8 md:p-12 flex flex-col md:flex-row items-center gap-8 relative z-10">
-                <div className="flex-1 space-y-4 text-center md:text-left">
-                  <h2 className="text-3xl md:text-4xl font-black text-[#191c1e] leading-tight">
-                    Make your community <span className="text-[#f36f56]">better.</span>
-                  </h2>
-                  <p className="text-sm md:text-base text-[#58423d] max-w-2xl">
-                    Join thousands of citizens actively improving their neighborhoods. Report issues directly to local authorities and track the progress in real-time.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-3 pt-2 justify-center md:justify-start">
-                    <button
-                      onClick={() => setShowReportModal(true)}
-                      className="h-[52px] px-6 bg-[#f36f56] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-[#a83824] transition-colors shadow-sm cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-lg">add</span>
-                      Report an Issue
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('my_issues')}
-                      className="h-[52px] px-6 bg-white border border-[#e0e3e5] text-[#191c1e] font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-[#f2f4f6] transition-colors shadow-sm cursor-pointer"
-                    >
-                      View My Issues
-                    </button>
+
+            {activeTab === 'my_issues' ? (
+              /* ========================================================= */
+              /* DEDICATED MY ISSUES PAGE VIEW                            */
+              /* ========================================================= */
+              <div className="space-y-6">
+                {/* Page Title & Action Bar */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm">
+                  <div>
+                    <h2 className="text-2xl font-black text-[#191c1e] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#f36f56]">folder_open</span>
+                      My Reported Issues
+                    </h2>
+                    <p className="text-xs text-[#58423d] mt-1">
+                      Track the real-time status, government review, and university assignment for all your reported civic complaints.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowReportModal(true)}
+                    className="px-5 py-2.5 bg-[#f36f56] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-[#a83824] transition-colors shadow-sm cursor-pointer shrink-0"
+                  >
+                    <span className="material-symbols-outlined text-base">add</span>
+                    Report New Issue
+                  </button>
+                </div>
+
+                {/* 4 Dynamic Status KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <button
+                    onClick={() => setStatusFilter('All')}
+                    className={`bg-white p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-sm ${
+                      statusFilter === 'All' ? 'border-[#f36f56] ring-2 ring-[#f36f56]/20' : 'border-[#e0e3e5] hover:border-[#f36f56]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[#58423d] mb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider">All Issues</span>
+                      <span className="material-symbols-outlined text-[#f36f56] text-xl">dataset</span>
+                    </div>
+                    <div className="text-3xl font-black text-[#191c1e]">{issues.length}</div>
+                    <div className="text-[10px] text-[#58423d] font-medium mt-1">Total Logged</div>
+                  </button>
+
+                  <button
+                    onClick={() => setStatusFilter('submitted')}
+                    className={`bg-white p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-sm ${
+                      statusFilter === 'submitted' ? 'border-[#262ce7] ring-2 ring-[#262ce7]/20' : 'border-[#e0e3e5] hover:border-[#262ce7]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[#58423d] mb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider">Under Review</span>
+                      <span className="material-symbols-outlined text-[#262ce7] text-xl">pending_actions</span>
+                    </div>
+                    <div className="text-3xl font-black text-[#191c1e]">
+                      {issues.filter(i => i.status === 'submitted' || i.status === 'under_review' || i.status === 'Under Review').length}
+                    </div>
+                    <div className="text-[10px] text-[#262ce7] font-medium mt-1">Awaiting Govt Triage</div>
+                  </button>
+
+                  <button
+                    onClick={() => setStatusFilter('in_progress')}
+                    className={`bg-white p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-sm ${
+                      statusFilter === 'in_progress' ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-[#e0e3e5] hover:border-amber-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[#58423d] mb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider">In Progress</span>
+                      <span className="material-symbols-outlined text-amber-500 text-xl">engineering</span>
+                    </div>
+                    <div className="text-3xl font-black text-[#191c1e]">
+                      {issues.filter(i => i.status === 'in_progress' || i.status === 'In Progress').length}
+                    </div>
+                    <div className="text-[10px] text-amber-600 font-medium mt-1">R&amp;D Team Active</div>
+                  </button>
+
+                  <button
+                    onClick={() => setStatusFilter('resolved')}
+                    className={`bg-white p-5 rounded-2xl border text-left transition-all cursor-pointer shadow-sm ${
+                      statusFilter === 'resolved' ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-[#e0e3e5] hover:border-emerald-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[#58423d] mb-1">
+                      <span className="text-[11px] font-bold uppercase tracking-wider">Resolved</span>
+                      <span className="material-symbols-outlined text-emerald-500 text-xl">check_circle</span>
+                    </div>
+                    <div className="text-3xl font-black text-[#191c1e]">
+                      {issues.filter(i => i.status === 'resolved' || i.status === 'Resolved').length}
+                    </div>
+                    <div className="text-[10px] text-emerald-600 font-medium mt-1">Fix Deployed</div>
+                  </button>
+                </div>
+
+                {/* Filter & Search Toolbar */}
+                <div className="bg-white p-4 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+                  {/* Search input */}
+                  <div className="relative flex-1 w-full">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#58423d] text-lg">search</span>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Filter by issue title, description, or location..."
+                      className="w-full pl-9 pr-4 py-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl text-xs text-[#191c1e] focus:border-[#f36f56] outline-none"
+                    />
+                  </div>
+
+                  {/* Category Pills */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+                    {[
+                      { id: 'all', label: 'All Categories' },
+                      { id: 'roads', label: 'Roads' },
+                      { id: 'water', label: 'Water' },
+                      { id: 'sanitation', label: 'Sanitation' },
+                      { id: 'electricity', label: 'Electricity' },
+                      { id: 'health', label: 'Health' },
+                    ].map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setFilterCategory(cat.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                          filterCategory === cat.id ? 'bg-[#f36f56] text-white' : 'bg-[#f8f9fb] border border-[#e0e3e5] text-[#58423d] hover:bg-[#e0e3e5]'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Hero Illustration Graphic */}
-                <div className="w-full md:w-1/3 max-w-[260px] aspect-square bg-[#f8f9fb] rounded-full overflow-hidden shrink-0 border-8 border-white shadow-md flex items-center justify-center">
-                  <div className="flex flex-col items-center justify-center p-6 text-center">
-                    <span className="material-symbols-outlined text-6xl text-[#f36f56] mb-2">location_city</span>
-                    <span className="text-xs font-bold text-[#191c1e]">Smart Civic Portal</span>
+                {/* Issues Grid / List */}
+                {loadingIssues ? (
+                  <div className="bg-white p-12 rounded-2xl border border-[#e0e3e5] text-center text-[#58423d]">
+                    <span className="material-symbols-outlined text-3xl animate-spin text-[#f36f56] mb-2">progress_activity</span>
+                    <p className="text-xs font-bold text-[#191c1e]">Fetching your reported issues...</p>
                   </div>
-                </div>
-              </div>
-            </section>
+                ) : issues.filter((issue) => {
+                    const s = (issue.status || '').toLowerCase();
+                    let matchStatus = true;
+                    if (statusFilter === 'submitted') matchStatus = s === 'submitted' || s === 'under review' || s === 'under_review';
+                    else if (statusFilter === 'in_progress') matchStatus = s === 'in_progress' || s === 'in progress';
+                    else if (statusFilter === 'resolved') matchStatus = s === 'resolved';
 
-            {/* STATS GRID (4 KPI Cards) */}
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Card 1: Reported */}
-              <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col gap-2 border-t-4 border-t-[#f36f56]">
-                <div className="flex items-center gap-2 text-[#58423d]">
-                  <span className="material-symbols-outlined text-[#f36f56] text-xl">report</span>
-                  <span className="text-xs font-bold uppercase tracking-wider">Reported</span>
-                </div>
-                <span className="text-3xl font-extrabold text-[#191c1e]">12</span>
-              </div>
+                    let matchCat = true;
+                    if (filterCategory !== 'all') matchCat = (issue.category || '').toLowerCase().includes(filterCategory.toLowerCase());
 
-              {/* Card 2: Under Review */}
-              <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col gap-2 border-t-4 border-t-[#262ce7]">
-                <div className="flex items-center gap-2 text-[#58423d]">
-                  <span className="material-symbols-outlined text-[#262ce7] text-xl">pending_actions</span>
-                  <span className="text-xs font-bold uppercase tracking-wider">Under Review</span>
-                </div>
-                <span className="text-3xl font-extrabold text-[#191c1e]">3</span>
-              </div>
-
-              {/* Card 3: In Progress */}
-              <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col gap-2 border-t-4 border-t-[#454eff]">
-                <div className="flex items-center gap-2 text-[#58423d]">
-                  <span className="material-symbols-outlined text-[#454eff] text-xl">construction</span>
-                  <span className="text-xs font-bold uppercase tracking-wider">In Progress</span>
-                </div>
-                <span className="text-3xl font-extrabold text-[#191c1e]">1</span>
-              </div>
-
-              {/* Card 4: Resolved */}
-              <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col gap-2 border-t-4 border-t-[#10B981]">
-                <div className="flex items-center gap-2 text-[#58423d]">
-                  <span className="material-symbols-outlined text-[#10B981] text-xl">check_circle</span>
-                  <span className="text-xs font-bold uppercase tracking-wider">Resolved</span>
-                </div>
-                <span className="text-3xl font-extrabold text-[#191c1e]">8</span>
-              </div>
-            </section>
-
-            {/* MAIN TWO-COLUMN GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* RECENT ISSUES LIST (2 Columns) */}
-              <section className="lg:col-span-2 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-[#191c1e]">Recent Civic Issues</h3>
-                  <div className="flex items-center gap-2">
+                    let matchSearch = true;
+                    if (searchQuery.trim()) {
+                      const q = searchQuery.toLowerCase();
+                      const locStr = typeof issue.location === 'object' && issue.location !== null
+                        ? `${issue.location.address || ''} ${issue.location.district || ''}`.toLowerCase()
+                        : String(issue.location || '').toLowerCase();
+                      matchSearch = (issue.title || '').toLowerCase().includes(q) || (issue.description || '').toLowerCase().includes(q) || locStr.includes(q);
+                    }
+                    return matchStatus && matchCat && matchSearch;
+                  }).length === 0 ? (
+                  <div className="bg-white p-12 rounded-2xl border border-[#e0e3e5] border-dashed text-center flex flex-col items-center justify-center">
+                    <span className="material-symbols-outlined text-5xl text-[#58423d] mb-3">folder_off</span>
+                    <h4 className="text-base font-bold text-[#191c1e] mb-1">No issues found</h4>
+                    <p className="text-xs text-[#58423d] max-w-sm mb-4">
+                      No issues match your current status or search filter. Try clearing filters or submit a new issue report.
+                    </p>
                     <button
-                      onClick={() => setFilterCategory('all')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${filterCategory === 'all' ? 'bg-[#f36f56] text-white' : 'bg-white border border-[#e0e3e5] text-[#58423d]'}`}
+                      onClick={() => { setStatusFilter('All'); setFilterCategory('all'); setSearchQuery(''); }}
+                      className="px-4 py-2 border border-[#e0e3e5] text-xs font-bold text-[#191c1e] rounded-xl hover:bg-[#f8f9fb]"
                     >
-                      All
-                    </button>
-                    <button
-                      onClick={() => setFilterCategory('Roads & Infrastructure')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${filterCategory === 'Roads & Infrastructure' ? 'bg-[#f36f56] text-white' : 'bg-white border border-[#e0e3e5] text-[#58423d]'}`}
-                    >
-                      Roads
+                      Clear Filters
                     </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {issues.filter((issue) => {
+                      const s = (issue.status || '').toLowerCase();
+                      let matchStatus = true;
+                      if (statusFilter === 'submitted') matchStatus = s === 'submitted' || s === 'under review' || s === 'under_review';
+                      else if (statusFilter === 'in_progress') matchStatus = s === 'in_progress' || s === 'in progress';
+                      else if (statusFilter === 'resolved') matchStatus = s === 'resolved';
 
-                {issues.length > 0 ? (
-                  <div className="space-y-3">
-                    {issues.map((issue, idx) => (
-                      <div key={idx} className="bg-white p-5 rounded-2xl border border-[#e0e3e5] shadow-sm flex items-start justify-between gap-4">
-                        <div className="space-y-1">
+                      let matchCat = true;
+                      if (filterCategory !== 'all') matchCat = (issue.category || '').toLowerCase().includes(filterCategory.toLowerCase());
+
+                      let matchSearch = true;
+                      if (searchQuery.trim()) {
+                        const q = searchQuery.toLowerCase();
+                        const locStr = typeof issue.location === 'object' && issue.location !== null
+                          ? `${issue.location.address || ''} ${issue.location.district || ''}`.toLowerCase()
+                          : String(issue.location || '').toLowerCase();
+                        matchSearch = (issue.title || '').toLowerCase().includes(q) || (issue.description || '').toLowerCase().includes(q) || locStr.includes(q);
+                      }
+                      return matchStatus && matchCat && matchSearch;
+                    }).map((issue, idx) => (
+                      <div key={issue._id || idx} className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4 hover:border-[#f36f56] transition-all">
+                        {/* Header: Category + Status Badge */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#e0e3e5] pb-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-[#f36f56] uppercase tracking-wider">{issue.category}</span>
-                            <span className="text-xs text-[#58423d]">• {issue.date || (issue.createdAt ? new Date(issue.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently')}</span>
+                            <span className="px-2.5 py-0.5 rounded bg-[#f36f56]/10 text-[#f36f56] text-[10px] font-extrabold uppercase tracking-wider">
+                              {issue.category}
+                            </span>
+                            <span className="text-xs text-[#58423d]">
+                              • Reported on {issue.createdAt ? new Date(issue.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently'}
+                            </span>
                           </div>
-                          <h4 className="text-base font-bold text-[#191c1e]">{issue.title}</h4>
-                          <p className="text-xs text-[#58423d] flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm">location_on</span>
-                            {typeof issue.location === 'object' && issue.location !== null
-                              ? [issue.location.address, issue.location.district, issue.location.state].filter(Boolean).join(', ')
-                              : (issue.location || 'Location not specified')}
-                          </p>
+
+                          <span className={`self-start sm:self-auto px-3 py-1 rounded-full text-xs font-bold ${
+                            issue.status === 'resolved' || issue.status === 'Resolved'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : issue.status === 'in_progress' || issue.status === 'In Progress'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {issue.status === 'submitted' || issue.status === 'under_review' ? 'Under Review' : issue.status}
+                          </span>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              issue.status === 'Resolved' || issue.status === 'resolved'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : issue.status === 'In Progress' || issue.status === 'in_progress'
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                : 'bg-orange-50 text-orange-700 border border-orange-200'
-                            }`}
-                          >
-                            {issue.status}
-                          </span>
-                          <span className="text-xs text-[#58423d] font-semibold flex items-center gap-1">
-                            <span className="material-symbols-outlined text-sm text-[#f36f56]">thumb_up</span>
-                            {issue.upvotes || 0} Upvotes
-                          </span>
+
+                        {/* Title & Description */}
+                        <div>
+                          <h3 className="text-lg font-bold text-[#191c1e] mb-1">{issue.title}</h3>
+                          <p className="text-xs text-[#58423d] leading-relaxed">{issue.description}</p>
+                        </div>
+
+                        {/* Location & Photos Preview */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] text-xs">
+                          <div className="flex items-center gap-1.5 text-[#58423d]">
+                            <span className="material-symbols-outlined text-sm text-[#f36f56]">location_on</span>
+                            <span className="font-semibold text-[#191c1e]">
+                              {typeof issue.location === 'object' && issue.location !== null
+                                ? [issue.location.address, issue.location.district, issue.location.state].filter(Boolean).join(', ')
+                                : (issue.location || 'Location specified')}
+                            </span>
+                          </div>
+
+                          {/* Photos thumbnail preview */}
+                          {issue.photos?.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-[#58423d] font-semibold">{issue.photos.length} Photo(s):</span>
+                              <div className="flex gap-1.5">
+                                {issue.photos.map((p, pIdx) => (
+                                  <a key={pIdx} href={p.url} target="_blank" rel="noopener noreferrer" className="block">
+                                    <img src={p.url} alt="evidence" className="w-8 h-8 rounded object-cover border border-[#e0e3e5] hover:opacity-80 transition-opacity" />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Real-time Resolution Progress Stepper */}
+                        <div className="pt-2 border-t border-[#e0e3e5]">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-[#58423d] mb-2">Resolution Progress</div>
+                          <div className="grid grid-cols-4 gap-2 text-center text-[11px]">
+                            <div className={`p-2 rounded-lg border font-semibold ${
+                              ['submitted', 'under_review', 'in_progress', 'resolved'].includes(issue.status?.toLowerCase())
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                : 'bg-[#f8f9fb] border-[#e0e3e5] text-[#58423d]'
+                            }`}>
+                              1. Submitted
+                            </div>
+                            <div className={`p-2 rounded-lg border font-semibold ${
+                              ['under_review', 'in_progress', 'resolved'].includes(issue.status?.toLowerCase())
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                : 'bg-[#f8f9fb] border-[#e0e3e5] text-[#58423d]'
+                            }`}>
+                              2. Govt Triage
+                            </div>
+                            <div className={`p-2 rounded-lg border font-semibold ${
+                              ['in_progress', 'resolved'].includes(issue.status?.toLowerCase())
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                : 'bg-[#f8f9fb] border-[#e0e3e5] text-[#58423d]'
+                            }`}>
+                              3. R&amp;D Assigned
+                            </div>
+                            <div className={`p-2 rounded-lg border font-semibold ${
+                              issue.status?.toLowerCase() === 'resolved'
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                                : 'bg-[#f8f9fb] border-[#e0e3e5] text-[#58423d]'
+                            }`}>
+                              4. Resolved
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="bg-white p-8 rounded-2xl border border-[#e0e3e5] border-dashed flex flex-col items-center justify-center text-center min-h-[280px]">
-                    <span className="material-symbols-outlined text-5xl text-[#f36f56] mb-3">markunread_mailbox</span>
-                    <h4 className="text-base font-semibold text-[#191c1e] mb-1">No issues reported yet</h4>
-                    <p className="text-xs text-[#58423d] max-w-md mb-4">
-                      Your neighborhood looks clear. If you spot a pothole, broken streetlight, or civic issue, let us know.
-                    </p>
-                    <button
-                      onClick={() => setShowReportModal(true)}
-                      className="h-[44px] px-6 border border-[#f36f56] text-[#f36f56] font-bold text-xs rounded-xl flex items-center gap-2 hover:bg-[#ffdad3] transition-colors cursor-pointer"
-                    >
-                      Report your first issue
-                    </button>
-                  </div>
                 )}
-              </section>
-
-              {/* QUICK ACTION CARD (1 Column) */}
-              <section className="space-y-4">
-                <h3 className="text-xl font-bold text-[#191c1e]">Quick Action</h3>
-                <div className="bg-[#ffdad3] rounded-2xl p-6 relative overflow-hidden shadow-sm border border-[#dfc0b9]">
-                  <div className="absolute -right-12 -top-12 w-48 h-48 bg-[#f36f56] opacity-10 rounded-full blur-2xl pointer-events-none"></div>
-                  <div className="relative z-10 flex flex-col justify-between h-full gap-6">
-                    <div>
-                      <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
-                        <span className="material-symbols-outlined text-[#f36f56] text-2xl">visibility</span>
-                      </div>
-                      <h4 className="text-xl font-bold text-[#3f0400] mb-1">See a problem?</h4>
-                      <p className="text-xs text-[#58423d] leading-relaxed">
-                        Quickly log location-based issues to help local authorities and university teams act faster.
+              </div>
+            ) : (
+              /* ========================================================= */
+              /* HOME VIEW (HERO + STATS + RECENT ISSUES)                  */
+              /* ========================================================= */
+              <>
+                {/* HERO SECTION */}
+                <section className="bg-white rounded-2xl border border-[#e0e3e5] overflow-hidden relative shadow-sm">
+                  <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 100% 0%, #f36f56 0%, transparent 40%)' }}></div>
+                  <div className="p-8 md:p-12 flex flex-col md:flex-row items-center gap-8 relative z-10">
+                    <div className="flex-1 space-y-4 text-center md:text-left">
+                      <h2 className="text-3xl md:text-4xl font-black text-[#191c1e] leading-tight">
+                        Make your community <span className="text-[#f36f56]">better.</span>
+                      </h2>
+                      <p className="text-sm md:text-base text-[#58423d] max-w-2xl">
+                        Join thousands of citizens actively improving their neighborhoods. Report issues directly to local authorities and track the progress in real-time.
                       </p>
+                      <div className="flex flex-col sm:flex-row gap-3 pt-2 justify-center md:justify-start">
+                        <button
+                          onClick={() => setShowReportModal(true)}
+                          className="h-[52px] px-6 bg-[#f36f56] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-[#a83824] transition-colors shadow-sm cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-lg">add</span>
+                          Report an Issue
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('my_issues')}
+                          className="h-[52px] px-6 bg-white border border-[#e0e3e5] text-[#191c1e] font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-[#f2f4f6] transition-colors shadow-sm cursor-pointer"
+                        >
+                          View My Issues
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => setShowReportModal(true)}
-                      className="w-full h-[52px] bg-[#f36f56] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-[#a83824] transition-colors shadow-sm cursor-pointer"
-                    >
-                      Report an Issue
-                      <span className="material-symbols-outlined text-lg">arrow_forward</span>
-                    </button>
+
+                    {/* Hero Illustration Graphic */}
+                    <div className="w-full md:w-1/3 max-w-[260px] aspect-square bg-[#f8f9fb] rounded-full overflow-hidden shrink-0 border-8 border-white shadow-md flex items-center justify-center">
+                      <div className="flex flex-col items-center justify-center p-6 text-center">
+                        <span className="material-symbols-outlined text-6xl text-[#f36f56] mb-2">location_city</span>
+                        <span className="text-xs font-bold text-[#191c1e]">Smart Civic Portal</span>
+                      </div>
+                    </div>
                   </div>
+                </section>
+
+                {/* STATS GRID (4 KPI Cards) */}
+                <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Card 1: Reported */}
+                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col gap-2 border-t-4 border-t-[#f36f56]">
+                    <div className="flex items-center gap-2 text-[#58423d]">
+                      <span className="material-symbols-outlined text-[#f36f56] text-xl">report</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">Reported</span>
+                    </div>
+                    <span className="text-3xl font-extrabold text-[#191c1e]">{issues.length}</span>
+                  </div>
+
+                  {/* Card 2: Under Review */}
+                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col gap-2 border-t-4 border-t-[#262ce7]">
+                    <div className="flex items-center gap-2 text-[#58423d]">
+                      <span className="material-symbols-outlined text-[#262ce7] text-xl">pending_actions</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">Under Review</span>
+                    </div>
+                    <span className="text-3xl font-extrabold text-[#191c1e]">
+                      {issues.filter(i => i.status === 'submitted' || i.status === 'under_review' || i.status === 'Under Review').length}
+                    </span>
+                  </div>
+
+                  {/* Card 3: In Progress */}
+                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col gap-2 border-t-4 border-t-[#454eff]">
+                    <div className="flex items-center gap-2 text-[#58423d]">
+                      <span className="material-symbols-outlined text-[#454eff] text-xl">construction</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">In Progress</span>
+                    </div>
+                    <span className="text-3xl font-extrabold text-[#191c1e]">
+                      {issues.filter(i => i.status === 'in_progress' || i.status === 'In Progress').length}
+                    </span>
+                  </div>
+
+                  {/* Card 4: Resolved */}
+                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm flex flex-col gap-2 border-t-4 border-t-[#10B981]">
+                    <div className="flex items-center gap-2 text-[#58423d]">
+                      <span className="material-symbols-outlined text-[#10B981] text-xl">check_circle</span>
+                      <span className="text-xs font-bold uppercase tracking-wider">Resolved</span>
+                    </div>
+                    <span className="text-3xl font-extrabold text-[#191c1e]">
+                      {issues.filter(i => i.status === 'resolved' || i.status === 'Resolved').length}
+                    </span>
+                  </div>
+                </section>
+
+                {/* MAIN TWO-COLUMN GRID */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* RECENT ISSUES LIST (2 Columns) */}
+                  <section className="lg:col-span-2 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xl font-bold text-[#191c1e]">Recent Civic Issues</h3>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setFilterCategory('all')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${filterCategory === 'all' ? 'bg-[#f36f56] text-white' : 'bg-white border border-[#e0e3e5] text-[#58423d]'}`}
+                        >
+                          All
+                        </button>
+                        <button
+                          onClick={() => setFilterCategory('Roads & Infrastructure')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer ${filterCategory === 'Roads & Infrastructure' ? 'bg-[#f36f56] text-white' : 'bg-white border border-[#e0e3e5] text-[#58423d]'}`}
+                        >
+                          Roads
+                        </button>
+                      </div>
+                    </div>
+
+                    {issues.length > 0 ? (
+                      <div className="space-y-3">
+                        {issues.map((issue, idx) => (
+                          <div key={idx} className="bg-white p-5 rounded-2xl border border-[#e0e3e5] shadow-sm flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-[#f36f56] uppercase tracking-wider">{issue.category}</span>
+                                <span className="text-xs text-[#58423d]">• {issue.date || (issue.createdAt ? new Date(issue.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently')}</span>
+                              </div>
+                              <h4 className="text-base font-bold text-[#191c1e]">{issue.title}</h4>
+                              <p className="text-xs text-[#58423d] flex items-center gap-1">
+                                <span className="material-symbols-outlined text-sm">location_on</span>
+                                {typeof issue.location === 'object' && issue.location !== null
+                                  ? [issue.location.address, issue.location.district, issue.location.state].filter(Boolean).join(', ')
+                                  : (issue.location || 'Location not specified')}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                  issue.status === 'Resolved' || issue.status === 'resolved'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : issue.status === 'In Progress' || issue.status === 'in_progress'
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'bg-orange-50 text-orange-700 border border-orange-200'
+                                }`}
+                              >
+                                {issue.status === 'submitted' || issue.status === 'under_review' ? 'Under Review' : issue.status}
+                              </span>
+                              <span className="text-xs text-[#58423d] font-semibold flex items-center gap-1">
+                                <span className="material-symbols-outlined text-sm text-[#f36f56]">thumb_up</span>
+                                {issue.upvotes || 0} Upvotes
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-white p-8 rounded-2xl border border-[#e0e3e5] border-dashed flex flex-col items-center justify-center text-center min-h-[280px]">
+                        <span className="material-symbols-outlined text-5xl text-[#f36f56] mb-3">markunread_mailbox</span>
+                        <h4 className="text-base font-semibold text-[#191c1e] mb-1">No issues reported yet</h4>
+                        <p className="text-xs text-[#58423d] max-w-md mb-4">
+                          Your neighborhood looks clear. If you spot a pothole, broken streetlight, or civic issue, let us know.
+                        </p>
+                        <button
+                          onClick={() => setShowReportModal(true)}
+                          className="h-[44px] px-6 border border-[#f36f56] text-[#f36f56] font-bold text-xs rounded-xl flex items-center gap-2 hover:bg-[#ffdad3] transition-colors cursor-pointer"
+                        >
+                          Report your first issue
+                        </button>
+                      </div>
+                    )}
+                  </section>
+
+                  {/* QUICK ACTION CARD (1 Column) */}
+                  <section className="space-y-4">
+                    <h3 className="text-xl font-bold text-[#191c1e]">Quick Action</h3>
+                    <div className="bg-[#ffdad3] rounded-2xl p-6 relative overflow-hidden shadow-sm border border-[#dfc0b9]">
+                      <div className="absolute -right-12 -top-12 w-48 h-48 bg-[#f36f56] opacity-10 rounded-full blur-2xl pointer-events-none"></div>
+                      <div className="relative z-10 flex flex-col justify-between h-full gap-6">
+                        <div>
+                          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm">
+                            <span className="material-symbols-outlined text-[#f36f56] text-2xl">visibility</span>
+                          </div>
+                          <h4 className="text-xl font-bold text-[#3f0400] mb-1">See a problem?</h4>
+                          <p className="text-xs text-[#58423d] leading-relaxed">
+                            Quickly log location-based issues to help local authorities and university teams act faster.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setShowReportModal(true)}
+                          className="w-full h-[52px] bg-[#f36f56] text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 hover:bg-[#a83824] transition-colors shadow-sm cursor-pointer"
+                        >
+                          Report an Issue
+                          <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                        </button>
+                      </div>
+                    </div>
+                  </section>
                 </div>
-              </section>
-            </div>
+              </>
+            )}
+
           </div>
         </main>
 

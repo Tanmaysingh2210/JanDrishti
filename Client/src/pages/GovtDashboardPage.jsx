@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import DarkModeToggle from '../components/DarkModeToggle';
+import IssueMap from '../components/IssueMap';
 
 function GovtDashboardPage() {
   const navigate = useNavigate();
@@ -290,6 +291,11 @@ function GovtDashboardPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setToastMessage(`Proposal "${proposalTitle}" accepted! Issue assigned to university.`);
+        if (data.issue) {
+          setSelectedChallenge(data.issue);
+        } else {
+          setSelectedChallenge((prev) => prev ? { ...prev, status: 'assigned' } : prev);
+        }
         // Refresh proposals and challenges
         fetchProposalsForIssue(selectedChallenge._id || selectedChallenge.id);
         fetchChallenges();
@@ -533,23 +539,21 @@ function GovtDashboardPage() {
 
               {/* Heatmap & Attention Cards */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* District Heatmap Card */}
-                <div className="lg:col-span-2 bg-white border border-[#e0e3e5] rounded-2xl shadow-sm flex flex-col h-[420px]">
-                  <div className="p-6 border-b border-[#e0e3e5] flex justify-between items-center">
+                {/* District Heatmap Card — Full Leaflet Map with Issue Dots */}
+                <div className="lg:col-span-2 bg-white border border-[#e0e3e5] rounded-2xl shadow-sm overflow-hidden" style={{ height: 420 }}>
+                  <div className="px-5 py-3 border-b border-[#e0e3e5] flex justify-between items-center" style={{ height: 54 }}>
                     <div>
-                      <h2 className="text-lg font-bold text-[#191c1e]">District Spatial Heatmap</h2>
-                      <p className="text-xs text-[#58423d]">Geographic distribution of issues across districts</p>
+                      <h2 className="text-base font-bold text-[#191c1e]">District Spatial Heatmap</h2>
+                      <p className="text-[11px] text-[#58423d]">Issue coordinates across Jharkhand — hover a dot for details</p>
                     </div>
+                    <span className="flex items-center gap-1 text-xs font-bold text-[#F36F56]">
+                      <span className="material-symbols-outlined text-sm">location_on</span>
+                      {challenges.length} Issues
+                    </span>
                   </div>
-
-                  <div className="flex-1 bg-[#f8f9fb] relative rounded-b-2xl overflow-hidden flex items-center justify-center">
-                    <div className="text-center p-6">
-                      <span className="material-symbols-outlined text-6xl text-[#F36F56] mb-2">map</span>
-                      <h4 className="text-sm font-bold text-[#191c1e]">Ranchi &amp; Jharkhand District Map</h4>
-                      <p className="text-xs text-[#58423d]">Dynamic GIS Database Tracking</p>
-                    </div>
-                  </div>
+                  <IssueMap issues={challenges} height={366} />
                 </div>
+
 
                 {/* Urgent Attention Panel */}
                 <div className="bg-white border border-[#e0e3e5] rounded-2xl shadow-sm flex flex-col h-[420px]">
@@ -582,8 +586,8 @@ function GovtDashboardPage() {
                       </div>
                     )}
 
-                    {challenges.length > 0 ? (
-                      challenges.slice(0, 3).map((c, idx) => (
+                    {challenges.filter(c => c.status !== 'assigned').length > 0 ? (
+                      challenges.filter(c => c.status !== 'assigned').slice(0, 4).map((c, idx) => (
                         <div
                           key={c._id || idx}
                           onClick={() => openChallengeDetail(c)}
@@ -593,15 +597,16 @@ function GovtDashboardPage() {
                             <span className="bg-[#F36F56] text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide">
                               {c.category || 'Civic Issue'}
                             </span>
-                            <span className="text-xs text-[#58423d] font-semibold">{c.status || 'under_review'}</span>
+                            <span className="text-xs text-[#58423d] font-semibold">{c.status || 'submitted'}</span>
                           </div>
                           <h3 className="text-xs font-bold text-[#191c1e]">{c.title}</h3>
                           <p className="text-xs text-[#58423d] line-clamp-1">{c.description}</p>
                         </div>
                       ))
                     ) : (
-                      <div className="p-6 text-center text-xs text-[#58423d]">
-                        No pending challenge alerts in database.
+                      <div className="p-6 text-center text-xs text-[#58423d] flex flex-col items-center gap-2">
+                        <span className="material-symbols-outlined text-2xl text-emerald-500">check_circle</span>
+                        All issues have been assigned. No pending operations.
                       </div>
                     )}
                   </div>
@@ -801,46 +806,35 @@ function GovtDashboardPage() {
                   {/* Step 3 */}
                   <div
                     className={`flex flex-col items-center text-center p-3 rounded-xl border ${
-                      selectedChallenge.assignedUniversity
+                      selectedChallenge.assignedUniversityId || selectedChallenge.assignedUniversity || ['assigned', 'in_progress'].includes(selectedChallenge.status?.toLowerCase())
                         ? 'bg-emerald-50 border-emerald-200'
                         : 'bg-blue-50 border-blue-200 animate-pulse'
                     }`}
                   >
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 ${
-                        selectedChallenge.assignedUniversity ? 'bg-emerald-600 text-white' : 'bg-[#262ce7] text-white'
+                        selectedChallenge.assignedUniversityId || selectedChallenge.assignedUniversity || ['assigned', 'in_progress'].includes(selectedChallenge.status?.toLowerCase()) ? 'bg-emerald-600 text-white' : 'bg-[#262ce7] text-white'
                       }`}
                     >
-                      {selectedChallenge.assignedUniversity ? '✓' : '3'}
+                      {selectedChallenge.assignedUniversityId || selectedChallenge.assignedUniversity || ['assigned', 'in_progress'].includes(selectedChallenge.status?.toLowerCase()) ? '✓' : '3'}
                     </div>
                     <span className="text-xs font-bold text-[#191c1e]">3. University Assigned</span>
-                    <span className="text-[11px] text-[#58423d] mt-0.5">
-                      {selectedChallenge.assignedUniversity ? selectedChallenge.assignedUniversity.name : 'Awaiting Team'}
+                    <span className="text-[11px] text-[#58423d] mt-0.5 font-semibold">
+                      {selectedChallenge.assignedUniversityId?.name || selectedChallenge.assignedUniversity?.name || (['assigned', 'in_progress'].includes(selectedChallenge.status?.toLowerCase()) ? 'University Assigned' : 'Awaiting Team')}
                     </span>
                   </div>
 
-                  {/* Step 4 */}
-                  <div
-                    className={`flex flex-col items-center text-center p-3 rounded-xl border ${
-                      selectedChallenge.assignedIndustry
-                        ? 'bg-emerald-50 border-emerald-200'
-                        : 'bg-[#f8f9fb] border-[#e0e3e5]'
-                    }`}
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 ${
-                        selectedChallenge.assignedIndustry ? 'bg-emerald-600 text-white' : 'bg-[#e0e3e5] text-[#58423d]'
-                      }`}
-                    >
-                      {selectedChallenge.assignedIndustry ? '✓' : '4'}
+
+                  {/* Step 4 — Industry Collaboration (University-driven) */}
+                  <div className="flex flex-col items-center text-center p-3 rounded-xl border bg-[#f8f9fb] border-[#e0e3e5]">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 bg-[#454eff] text-white">
+                      4
                     </div>
-                    <span className="text-xs font-bold text-[#191c1e]">4. Industry CSR Grant</span>
-                    <span className="text-[11px] text-[#58423d] mt-0.5">
-                      {selectedChallenge.assignedIndustry ? selectedChallenge.assignedIndustry.companyName : 'CSR Funding'}
-                    </span>
+                    <span className="text-xs font-bold text-[#191c1e]">4. Industry Collaboration</span>
+                    <span className="text-[11px] text-[#58423d] mt-0.5">University selects partners</span>
                   </div>
 
-                  {/* Step 5 */}
+                  {/* Step 5 — Deployed & Resolved */}
                   <div
                     className={`flex flex-col items-center text-center p-3 rounded-xl border ${
                       selectedChallenge.status === 'resolved'
@@ -1117,96 +1111,6 @@ function GovtDashboardPage() {
                   )}
                 </div>
 
-                {/* RIGHT SIDEBAR (1/3 Width): Teams & Sponsors */}
-                <div className="space-y-6">
-                  {/* ASSIGNED UNIVERSITY CARD */}
-                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-[#191c1e] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#262ce7]">school</span>
-                      Assigned University / Academic R&amp;D
-                    </h3>
-
-                    {selectedChallenge.assignedUniversity ? (
-                      <div className="p-4 bg-[#262ce7]/5 rounded-xl border border-[#262ce7]/20 text-xs space-y-2">
-                        <div className="font-bold text-[#191c1e] text-sm">{selectedChallenge.assignedUniversity.name}</div>
-                        <span className="px-2 py-0.5 bg-[#262ce7] text-white rounded font-mono text-[10px] font-bold inline-block">
-                          {selectedChallenge.assignedUniversity.code}
-                        </span>
-                        <div className="text-[#58423d]">
-                          <strong>Nodal Lead:</strong> {selectedChallenge.assignedUniversity.representative?.name || 'Prof. A. K. Sharma'}
-                        </div>
-                        <div className="text-[#262ce7]">{selectedChallenge.assignedUniversity.email}</div>
-                      </div>
-                    ) : (
-                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-                        No University currently assigned to this challenge.
-                      </div>
-                    )}
-
-                    <div className="space-y-2 pt-2 border-t border-[#e0e3e5]">
-                      <label className="block text-xs font-semibold text-[#191c1e]">Assign University Team</label>
-                      <select
-                        value={assignUnivId}
-                        onChange={(e) => {
-                          setAssignUnivId(e.target.value);
-                          handleAssignUniversityToChallenge(e.target.value);
-                        }}
-                        className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl text-xs font-semibold cursor-pointer outline-none"
-                      >
-                        <option value="">-- Select University --</option>
-                        {universities.map((u) => (
-                          <option key={u.id || u._id} value={u.id || u._id}>
-                            {u.name} ({u.code})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* ASSIGNED INDUSTRY SPONSOR CARD */}
-                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
-                    <h3 className="text-sm font-bold text-[#191c1e] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#454eff]">factory</span>
-                      Assigned Industry Partner / CSR Grant
-                    </h3>
-
-                    {selectedChallenge.assignedIndustry ? (
-                      <div className="p-4 bg-[#454eff]/5 rounded-xl border border-[#454eff]/20 text-xs space-y-2">
-                        <div className="font-bold text-[#191c1e] text-sm">{selectedChallenge.assignedIndustry.companyName}</div>
-                        <span className="px-2 py-0.5 bg-[#454eff] text-white rounded font-mono text-[10px] font-bold inline-block">
-                          {selectedChallenge.assignedIndustry.companyCode}
-                        </span>
-                        <div className="text-[#58423d]">
-                          <strong>CSR Contact:</strong> {selectedChallenge.assignedIndustry.contactPerson?.name || 'Head of CSR'}
-                        </div>
-                        <div className="text-[#454eff]">{selectedChallenge.assignedIndustry.email}</div>
-                      </div>
-                    ) : (
-                      <div className="p-4 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl text-xs text-[#58423d]">
-                        No Industry CSR sponsor assigned yet.
-                      </div>
-                    )}
-
-                    <div className="space-y-2 pt-2 border-t border-[#e0e3e5]">
-                      <label className="block text-xs font-semibold text-[#191c1e]">Assign Industry Sponsor</label>
-                      <select
-                        value={assignIndId}
-                        onChange={(e) => {
-                          setAssignIndId(e.target.value);
-                          handleAssignIndustryToChallenge(e.target.value);
-                        }}
-                        className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl text-xs font-semibold cursor-pointer outline-none"
-                      >
-                        <option value="">-- Select Industry Partner --</option>
-                        {industries.map((ind) => (
-                          <option key={ind._id} value={ind._id}>
-                            {ind.companyName} ({ind.companyCode})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           )}

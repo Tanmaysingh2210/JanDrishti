@@ -100,6 +100,7 @@ export const selectUniversityProposal = async (req, res) => {
     issue.assignedUniversityId = selectedProposal.universityId;
     issue.assignedAt = new Date();
     await issue.save();
+    await issue.populate("assignedUniversityId", "name code type email");
 
     // Calculate target completion date based on timelineMonths
     const startDate = new Date();
