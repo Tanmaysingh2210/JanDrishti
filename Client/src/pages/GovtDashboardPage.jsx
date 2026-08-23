@@ -833,25 +833,33 @@ function GovtDashboardPage() {
                   </div>
 
                   {/* Step 3 */}
-                  <div
-                    className={`flex flex-col items-center text-center p-3 rounded-xl border ${
-                      selectedChallenge.assignedUniversityId || selectedChallenge.assignedUniversity || ['assigned', 'in_progress'].includes(selectedChallenge.status?.toLowerCase())
-                        ? 'bg-emerald-50 border-emerald-200'
-                        : 'bg-blue-50 border-blue-200 animate-pulse'
-                    }`}
-                  >
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 ${
-                        selectedChallenge.assignedUniversityId || selectedChallenge.assignedUniversity || ['assigned', 'in_progress'].includes(selectedChallenge.status?.toLowerCase()) ? 'bg-emerald-600 text-white' : 'bg-[#262ce7] text-white'
-                      }`}
-                    >
-                      {selectedChallenge.assignedUniversityId || selectedChallenge.assignedUniversity || ['assigned', 'in_progress'].includes(selectedChallenge.status?.toLowerCase()) ? '✓' : '3'}
-                    </div>
-                    <span className="text-xs font-bold text-[#191c1e]">3. University Assigned</span>
-                    <span className="text-[11px] text-[#58423d] mt-0.5 font-semibold">
-                      {selectedChallenge.assignedUniversityId?.name || selectedChallenge.assignedUniversity?.name || (['assigned', 'in_progress'].includes(selectedChallenge.status?.toLowerCase()) ? 'University Assigned' : 'Awaiting Team')}
-                    </span>
-                  </div>
+                  {(() => {
+                    const hasAcceptedProposal = issueProposals.some(p => p.status === 'accepted' || p.status === 'approved');
+                    const acceptedProp = issueProposals.find(p => p.status === 'accepted' || p.status === 'approved');
+                    const assignedUnivName = acceptedProp?.universityId?.name;
+
+                    return (
+                      <div
+                        className={`flex flex-col items-center text-center p-3 rounded-xl border ${
+                          hasAcceptedProposal
+                            ? 'bg-emerald-50 border-emerald-200'
+                            : 'bg-slate-50 border-[#e0e3e5]'
+                        }`}
+                      >
+                        <div
+                          className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 ${
+                            hasAcceptedProposal ? 'bg-emerald-600 text-white' : 'bg-[#e0e3e5] text-[#58423d]'
+                          }`}
+                        >
+                          {hasAcceptedProposal ? '✓' : '3'}
+                        </div>
+                        <span className="text-xs font-bold text-[#191c1e]">3. University Assigned</span>
+                        <span className="text-[11px] text-[#58423d] mt-0.5 font-semibold">
+                          {hasAcceptedProposal ? (assignedUnivName || 'University Assigned') : 'Awaiting Proposal Acceptance'}
+                        </span>
+                      </div>
+                    );
+                  })()}
 
 
                   {/* Step 4 — Industry Collaboration (University-driven) */}
@@ -979,9 +987,10 @@ function GovtDashboardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* SELECTED UNIVERSITY PARTNER CARD */}
                   {(() => {
-                    const acceptedProp = issueProposals.find(p => p.status === 'accepted');
-                    const univObj = acceptedProp?.universityId || govtProjectDetail?.universityId || selectedChallenge.assignedUniversityId || selectedChallenge.assignedUniversity;
-                    const univName = univObj?.name || (acceptedProp ? 'Birla Institute of Technology (BIT Mesra)' : null);
+                    const acceptedProp = issueProposals.find(p => p.status === 'accepted' || p.status === 'approved');
+                    const hasAcceptedProposal = Boolean(acceptedProp);
+                    const univObj = hasAcceptedProposal ? acceptedProp?.universityId : null;
+                    const univName = univObj?.name || null;
                     
                     return (
                       <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
@@ -990,18 +999,18 @@ function GovtDashboardPage() {
                             <span className="material-symbols-outlined text-[#2F36ED] text-xl">account_balance</span>
                             Selected University Partner
                           </h3>
-                          {univName ? (
+                          {hasAcceptedProposal && univName ? (
                             <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300">
                               Assigned
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-bold border border-amber-300">
-                              Pending Selection
+                            <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-300">
+                              Unassigned
                             </span>
                           )}
                         </div>
 
-                        {univName ? (
+                        {hasAcceptedProposal && univName ? (
                           <div className="bg-[#f8f9fb] p-4 rounded-xl border border-[#e0e3e5] space-y-3 text-xs">
                             <div>
                               <p className="font-extrabold text-[#191c1e] text-sm">{univName}</p>
@@ -1035,9 +1044,14 @@ function GovtDashboardPage() {
                             )}
                           </div>
                         ) : (
-                          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
-                            <p className="font-bold">No University Assigned Yet</p>
-                            <p className="text-[11px]">Review the submitted proposals below and click "Accept Proposal" to assign an academic team.</p>
+                          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 space-y-1">
+                            <p className="font-bold text-[#191c1e] flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-slate-400 text-base">domain_disabled</span>
+                              Unassigned — No University Selected
+                            </p>
+                            <p className="text-[11px] text-[#58423d] leading-relaxed">
+                              Review the submitted proposals below and click <strong>"Accept Proposal"</strong> to select and assign an academic partner.
+                            </p>
                           </div>
                         )}
                       </div>

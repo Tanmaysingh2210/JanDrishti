@@ -869,6 +869,94 @@ function UniversityDashboardPage() {
                       {selectedChallenge.description}
                     </p>
                   </div>
+
+                  {/* MEDIA GALLERY */}
+                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#F36F56]">photo_library</span>
+                      Media Gallery (Field Inspections &amp; Photos)
+                    </h3>
+
+                    {((selectedChallenge.photos?.length || 0) + (selectedChallenge.videos?.length || 0)) === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-[#58423d] bg-[#f8f9fb] rounded-xl border border-[#e0e3e5]">
+                        <span className="material-symbols-outlined text-4xl text-[#e0e3e5] mb-2">image_not_supported</span>
+                        <p className="text-xs font-semibold">No media uploaded by citizen</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {(selectedChallenge.photos || []).map((photo, idx) => {
+                          const photoUrl = typeof photo === 'object' ? photo?.url : photo;
+                          return (
+                            <div key={photo._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                              <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="block">
+                                <img
+                                  src={photoUrl}
+                                  alt={`Citizen Photo ${idx + 1}`}
+                                  className="w-full h-44 object-cover rounded-lg mb-2 hover:opacity-90 transition-opacity"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                                <div style={{ display: 'none' }} className="w-full h-44 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2">
+                                  <span className="material-symbols-outlined text-4xl text-[#F36F56] mb-1">broken_image</span>
+                                  <span className="text-xs font-bold">Image failed to load</span>
+                                </div>
+                              </a>
+                              <span className="text-xs font-semibold text-[#191c1e]">Geotagged Photo #{idx + 1}</span>
+                              <p className="text-[11px] text-[#58423d]">Captured by Citizen</p>
+                            </div>
+                          );
+                        })}
+                        {(selectedChallenge.videos || []).map((video, idx) => {
+                          const videoUrl = typeof video === 'object' ? video?.url : video;
+                          return (
+                            <div key={video._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                              <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="block">
+                                <div className="w-full h-44 bg-slate-800 rounded-lg flex flex-col items-center justify-center mb-2 hover:opacity-90 transition-opacity">
+                                  <span className="material-symbols-outlined text-4xl text-white mb-1">play_circle</span>
+                                  <span className="text-xs font-bold text-white">Click to Play Video</span>
+                                </div>
+                              </a>
+                              <span className="text-xs font-semibold text-[#191c1e]">Location Video Log #{idx + 1}</span>
+                              <p className="text-[11px] text-[#58423d]">Submitted by Citizen</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* LOCATION & GEOTAG DETAILS */}
+                  <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#F36F56]">location_on</span>
+                      Location &amp; Geotag Details
+                    </h3>
+
+                    <div className="bg-[#f8f9fb] p-4 rounded-xl border border-[#e0e3e5] grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <span className="text-[#58423d]">Street Address:</span>
+                        <p className="font-bold text-[#191c1e]">{selectedChallenge.location?.address || 'Main Campus Road'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[#58423d]">District &amp; State:</span>
+                        <p className="font-bold text-[#191c1e]">{selectedChallenge.location?.district || 'Ranchi'}, {selectedChallenge.location?.state || 'Jharkhand'}</p>
+                      </div>
+                      <div>
+                        <span className="text-[#58423d]">GPS Coordinates:</span>
+                        <p className="font-mono font-bold text-[#262ce7]">
+                          {selectedChallenge.location?.latitude && selectedChallenge.location?.longitude
+                            ? `${selectedChallenge.location.latitude}° N, ${selectedChallenge.location.longitude}° E`
+                            : '23.3441° N, 85.3096° E'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[#58423d]">Zone Jurisdiction:</span>
+                        <p className="font-bold text-[#191c1e]">Ranchi Municipal Corporation</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* RIGHT COLUMN: PROPOSAL FORM */}
@@ -927,7 +1015,7 @@ function UniversityDashboardPage() {
                             min={10000}
                             value={proposalForm.estimatedCost}
                             onChange={(e) => setProposalForm({ ...proposalForm, estimatedCost: e.target.value })}
-                            className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
+                            className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none font-bold text-[#2F36ED]"
                           />
                         </div>
 
@@ -942,6 +1030,80 @@ function UniversityDashboardPage() {
                             onChange={(e) => setProposalForm({ ...proposalForm, timelineMonths: e.target.value })}
                             className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
                           />
+                        </div>
+                      </div>
+
+                      {/* FACULTY LEAD MENTOR SECTION */}
+                      <div className="pt-2 border-t border-[#e0e3e5] space-y-3">
+                        <span className="text-[11px] font-extrabold text-[#2F36ED] uppercase tracking-wider block">
+                          Faculty Mentor Lead Information
+                        </span>
+
+                        <div>
+                          <label className="block font-bold text-[#191c1e] mb-1">Faculty Lead Name *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Dr. Rajesh Verma"
+                            value={proposalForm.facultyName}
+                            onChange={(e) => setProposalForm({ ...proposalForm, facultyName: e.target.value })}
+                            className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block font-bold text-[#191c1e] mb-1">Designation</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Professor & Head"
+                              value={proposalForm.facultyDesignation}
+                              onChange={(e) => setProposalForm({ ...proposalForm, facultyDesignation: e.target.value })}
+                              className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-[#191c1e] mb-1">Department</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Civil Engineering"
+                              value={proposalForm.facultyDepartment}
+                              onChange={(e) => setProposalForm({ ...proposalForm, facultyDepartment: e.target.value })}
+                              className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* STUDENT RESEARCH TEAM LEAD SECTION */}
+                      <div className="pt-2 border-t border-[#e0e3e5] space-y-3">
+                        <span className="text-[11px] font-extrabold text-[#F36F56] uppercase tracking-wider block">
+                          Student Research Team Lead
+                        </span>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block font-bold text-[#191c1e] mb-1">Student Lead Name</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Amit Kumar"
+                              value={proposalForm.leadStudentName}
+                              onChange={(e) => setProposalForm({ ...proposalForm, leadStudentName: e.target.value })}
+                              className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block font-bold text-[#191c1e] mb-1">Contact Email</label>
+                            <input
+                              type="email"
+                              placeholder="e.g. student@univ.edu.in"
+                              value={proposalForm.leadStudentEmail}
+                              onChange={(e) => setProposalForm({ ...proposalForm, leadStudentEmail: e.target.value })}
+                              className="w-full p-2.5 bg-[#f8f9fb] border border-[#e0e3e5] rounded-xl outline-none"
+                            />
+                          </div>
                         </div>
                       </div>
 
@@ -1175,10 +1337,13 @@ function UniversityDashboardPage() {
           {/* DEDICATED ACCEPTED PROJECT DETAIL VIEW */}
           {activeView === 'project_detail' && selectedProjectDetail && (() => {
             const proj = selectedProjectDetail;
-            const projTitle = proj.title || proj.issueId?.title || 'Accepted Civic R&D Project';
-            const projDesc = proj.solutionDescription || proj.description || proj.issueId?.description || 'Government-approved university R&D project.';
-            const category = proj.category || proj.issueId?.category || 'R&D Innovation';
-            const locationStr = proj.issueId?.location?.district || proj.issueId?.location?.address || proj.location || 'Ranchi, Jharkhand';
+            const issueObj = (proj.issueId && typeof proj.issueId === 'object') ? proj.issueId : proj;
+            const projTitle = issueObj.title || proj.title || 'Accepted Civic R&D Project';
+            const projDesc = issueObj.description || proj.description || 'Civic infrastructure deployment project.';
+            const category = issueObj.category || proj.category || 'R&D Innovation';
+            const locationStr = (issueObj.location && typeof issueObj.location === 'object')
+              ? `${issueObj.location.address || ''} ${issueObj.location.district || 'Ranchi'}`.trim()
+              : (proj.location || 'Ranchi, Jharkhand');
             const budgetStr = proj.estimatedCost ? `₹${Number(proj.estimatedCost).toLocaleString('en-IN')}` : '₹18.5 Lakhs';
 
             // Filter industry proposals submitted for this project / issue
@@ -1244,6 +1409,55 @@ function UniversityDashboardPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* MEDIA GALLERY FOR ACCEPTED PROJECT */}
+                {issueObj && ((issueObj.photos?.length || 0) + (issueObj.videos?.length || 0)) > 0 && (
+                  <div className="bg-white border border-[#e0e3e5] rounded-2xl p-6 shadow-sm space-y-4">
+                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#F36F56]">photo_library</span>
+                      Media Gallery (Field Inspections &amp; Photos)
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {(issueObj.photos || []).map((photo, idx) => {
+                        const photoUrl = typeof photo === 'object' ? photo?.url : photo;
+                        return (
+                          <div key={photo._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                            <a href={photoUrl} target="_blank" rel="noopener noreferrer" className="block">
+                              <img
+                                src={photoUrl}
+                                alt={`Field Photo ${idx + 1}`}
+                                className="w-full h-44 object-cover rounded-lg mb-2 hover:opacity-90 transition-opacity"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div style={{ display: 'none' }} className="w-full h-44 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2">
+                                <span className="material-symbols-outlined text-4xl text-[#F36F56] mb-1">broken_image</span>
+                                <span className="text-xs font-bold">Image failed to load</span>
+                              </div>
+                            </a>
+                            <span className="text-xs font-semibold text-[#191c1e]">Geotagged Field Photo #{idx + 1}</span>
+                          </div>
+                        );
+                      })}
+                      {(issueObj.videos || []).map((video, idx) => {
+                        const videoUrl = typeof video === 'object' ? video?.url : video;
+                        return (
+                          <div key={video._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                            <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="block">
+                              <div className="w-full h-44 bg-slate-800 rounded-lg flex flex-col items-center justify-center mb-2 hover:opacity-90 transition-opacity">
+                                <span className="material-symbols-outlined text-4xl text-white mb-1">play_circle</span>
+                                <span className="text-xs font-bold text-white">Click to Play Video</span>
+                              </div>
+                            </a>
+                            <span className="text-xs font-semibold text-[#191c1e]">Location Video Log #{idx + 1}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* INDUSTRY CSR FUNDING & SUPPORT PROPOSALS SECTION */}
                 <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 shadow-sm space-y-6">
