@@ -1,0 +1,122 @@
+complaint,category,category_encoded
+Large-scale leakage in municipal water pipelines,water related,9
+Contaminated drinking water entering residential supply,water related,9
+Water wastage from overflowing public tanks,water related,9
+Lack of real-time monitoring of groundwater levels,water related,9
+Sewage mixing with drinking-water pipelines,water related,9
+Flooding caused by blocked drainage systems,water related,9
+Lack of affordable sewage-treatment systems for small towns,water related,9
+Untreated wastewater being discharged into rivers,water related,9
+Waterlogging in cities during moderate rainfall,urban development,8
+Lack of efficient rainwater harvesting in government buildings,water related,9
+Leakage detection in underground pipelines without digging up roads,water related,9
+Reusing treated wastewater for agriculture and public infrastructure,water related,9
+"Garbage collection routes are inefficient, causing some areas to remain unserved",urban development,8
+No effective method for automatically separating wet and dry waste,environment,4
+Plastic waste accumulating near rivers and drains,environment,4
+Construction and demolition waste being dumped illegally,urban development,8
+Lack of decentralized waste-processing facilities,urban development,8
+Difficulty monitoring illegal dumping locations,environment,4
+Organic waste from markets being wasted instead of converted into useful products,energy,3
+Biomedical waste being improperly disposed of,healthcare,5
+Overflowing garbage bins in high-footfall areas,urban development,8
+Lack of an efficient system to recycle electronic waste,environment,4
+Potholes repeatedly appearing after road repairs,urban development,8
+Detecting road damage before it becomes dangerous,urban development,8
+Poor drainage causing roads to deteriorate rapidly,urban development,8
+Traffic congestion around schools and hospitals,urban development,8
+Poorly synchronized traffic signals,urban development,8
+Lack of intelligent parking management in crowded areas,urban development,8
+Unsafe pedestrian crossings near busy roads,accessibility,0
+Roads becoming inaccessible during heavy rainfall,urban development,8
+Poor visibility of road markings at night,urban development,8
+Damaged or missing road dividers,urban development,8
+Illegal parking causing emergency vehicles to get delayed,urban development,8
+Lack of real-time information about road conditions,urban development,8
+Electricity wastage from street lights operating unnecessarily during daylight,energy,3
+Street lights failing without the municipality knowing immediately,energy,3
+Excessive electricity consumption in government buildings,energy,3
+Converting organic municipal waste into usable energy,energy,3
+Using solar energy to power rural public facilities,rural livelihood,7
+Solar-powered solutions for street lighting in remote areas,energy,3
+Recovering energy from wastewater-treatment processes,energy,3
+Lack of efficient battery-storage solutions for public infrastructure,energy,3
+Predicting electricity demand in government facilities to reduce wastage,energy,3
+Energy recovery from agricultural waste,energy,3
+Air pollution hotspots changing throughout the day without adequate monitoring,environment,4
+Illegal tree cutting going undetected,environment,4
+Urban heat islands caused by excessive concrete surfaces,environment,4
+Lack of green spaces in densely populated areas,urban development,8
+Pollution entering rivers from unidentified sources,environment,4
+Monitoring the health of urban trees,environment,4
+Detecting forest fires at an early stage,environment,4
+Monitoring illegal dumping near environmentally sensitive areas,environment,4
+Excessive dust from construction sites,environment,4
+Lack of efficient methods to reduce dust pollution around major roads,environment,4
+Farmers not getting irrigation water when crops need it,agriculture,1
+Detecting crop diseases before they spread across large areas,agriculture,1
+Agricultural waste being burned instead of reused,agriculture,1
+Lack of affordable technology for small farmers to monitor soil conditions,agriculture,1
+Excessive use of water for irrigation,agriculture,1
+Predicting crop yield using weather and soil information,agriculture,1
+Poor cold-storage availability causing food wastage,agriculture,1
+Farmers losing produce because of inefficient supply chains,agriculture,1
+Difficulty identifying suitable crops for changing weather conditions,agriculture,1
+Government buildings consuming excessive energy,energy,3
+Public toilets requiring frequent maintenance but lacking monitoring,urban development,8
+"Damaged public benches, railings and shelters remaining unrepaired",urban development,8
+Bus stops lacking adequate protection from heat and rain,urban development,8
+Public infrastructure becoming inaccessible to elderly and disabled people,accessibility,0
+Lack of real-time monitoring of structural damage in public buildings,urban development,8
+Government schools requiring better low-cost infrastructure monitoring,education,2
+Public water pumps frequently breaking down without timely maintenance,water related,9
+Long waiting times at government hospitals,healthcare,5
+Difficulty predicting patient load at government hospitals,healthcare,5
+Lack of medicine availability information across government hospitals,healthcare,5
+Ambulances getting delayed because of traffic congestion,healthcare,5
+Rural areas lacking quick access to diagnostic facilities,healthcare,5
+Medical equipment remaining unused because maintenance problems aren't detected early,healthcare,5
+Lack of centralized monitoring of critical medical equipment,healthcare,5
+Difficulty connecting patients in remote areas with specialists,healthcare,5
+Early detection of urban flooding,urban development,8
+Predicting areas likely to become waterlogged during heavy rainfall,water related,9
+Real-time detection of fallen trees blocking roads,environment,4
+Detecting damaged infrastructure after earthquakes or floods,urban development,8
+Identifying safe evacuation routes during disasters,public administration,6
+Locating stranded people during floods,public administration,6
+Monitoring landslide-prone areas,environment,4
+Early warning systems for vulnerable villages,rural livelihood,7
+Rapid assessment of damage after a natural disaster,public administration,6
+Finding barriers that prevent wheelchair users from accessing public places,accessibility,0
+Lack of accessible public transportation,accessibility,0
+Government websites and services being difficult for people with disabilities to use,accessibility,0
+Lack of accessible toilets in public places,accessibility,0
+Poor accessibility information for government buildings,accessibility,0
+Difficulty obtaining government services in remote villages,public administration,6
+Smart detection and prediction of municipal water-pipeline leakage,water related,9
+Intelligent traffic management around schools and hospitals,urban development,8
+AI-based road deterioration prediction,urban development,8
+Smart street-light energy optimization,energy,3
+AI-based illegal waste-dumping detection,environment,4
+Smart sewage and drinking-water contamination monitoring,water related,9
+Disaster damage assessment using satellite and drone imagery,public administration,6
+Predictive maintenance of public infrastructure,urban development,8
+Smart ambulance routing during peak traffic,healthcare,5
+Low-cost rural water-quality monitoring,water related,9
+Agricultural-waste-to-energy conversion,agriculture,1
+Real-time monitoring of government-building energy consumption,energy,3
+Lack of digital platforms connecting rural workers with employment opportunities,rural livelihood,7
+Farmers lack access to reliable market price information,rural livelihood,7
+Rural communities lack affordable cold storage for agricultural produce,rural livelihood,7
+Lack of skill-development opportunities for rural workers,rural livelihood,7
+Small rural businesses struggle to access suitable financial and technical support,rural livelihood,7
+Government applications remain pending for months without status updates,public administration,6
+Citizens cannot easily track the progress of government service requests,public administration,6
+Lack of transparency in allocation of public infrastructure projects,public administration,6
+Government departments lack efficient systems for handling recurring public complaints,public administration,6
+Citizens in remote areas have difficulty accessing online government services,public administration,6
+Government schools lack adequate digital learning infrastructure,education,2
+Students in rural schools lack access to qualified subject teachers,education,2
+Government schools struggle to monitor student attendance and dropout rates,education,2
+Lack of affordable technology for practical science education in government schools,education,2
+Educational institutions lack systems to identify students at risk of dropping out,education,2

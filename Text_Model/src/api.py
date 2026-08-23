@@ -78,14 +78,15 @@ def add_complaint(complaint: ComplaintIn):
     with WRITE_LOCK:
         info = _search_duplicate(text)
 
+        canonical = pipeline.CATEGORY_FIX.get(info["category"], info["category"])
         df = pd.read_csv(DATA_FILE)
         new_id = len(df)
-        encoded = LABEL_MAP.get(info["category"])
+        encoded = LABEL_MAP.get(canonical)
         if encoded is None:
             encoded = int(df["category_encoded"].max()) + 1
-        df.loc[new_id] = [text, info["category"], int(encoded)]
+        df.loc[new_id] = [text, canonical, int(encoded)]
         df.to_csv(DATA_FILE, index=False)
 
-        pipeline.engine.add_complaint(text, info["category"], complaint_id=new_id)
+        pipeline.engine.add_complaint(text, canonical, complaint_id=new_id)
 
     return info
