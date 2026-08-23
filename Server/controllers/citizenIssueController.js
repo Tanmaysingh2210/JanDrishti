@@ -9,22 +9,32 @@ const __dirname = path.dirname(__filename);
 
 // Map model output labels -> DB category enum
 const LABEL_MAP = {
+  "electric / solar energy": "electricity",
+  "energy": "electricity",
+  "electricity": "electricity",
   "road infrastructure": "roads_traffic",
   "roads": "roads_traffic",
+  "roads_traffic": "roads_traffic",
   "traffic": "roads_traffic",
+  "urban development": "roads_traffic",
   "waste management": "sanitation",
   "sanitation": "sanitation",
   "water": "water_management",
   "water management": "water_management",
-  "electric / solar energy": "electricity",
-  "energy": "electricity",
-  "electricity": "electricity",
+  "water_management": "water_management",
+  "water related": "water_management",
   "digital infrastructure": "infrastructure",
   "infrastructure": "infrastructure",
+  "accessibility": "infrastructure",
   "education": "education",
   "health": "health",
+  "healthcare": "health",
   "environment": "environment",
+  "public administration": "social",
+  "rural livelihood": "social",
   "social": "social",
+  "agriculture": "environment",
+  "other": "other",
 };
 
 // ==========================================
@@ -51,54 +61,70 @@ export const uploadEvidence = async (req, res) => {
       ? "jandrishti/citizen/videos"
       : "jandrishti/citizen/photos";
 
-    const result = await new Promise(
-      (resolve, reject) => {
-
-        const uploadStream =
-          cloudinary.uploader.upload_stream(
-            {
-              resource_type: resourceType,
-              folder,
-            },
-
-            (error, result) => {
-              if (error) {
-                reject(error);
-              } else {
-                resolve(result);
-              }
-            }
-          );
-
-        uploadStream.end(req.file.buffer);
-      }
-    );
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          resource_type: resourceType,
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
+    });
 
     return res.status(200).json({
       success: true,
-      message: "Evidence uploaded successfully",
-
-      file: {
-        url: result.secure_url,
-        publicId: result.public_id,
-        type: isVideo ? "video" : "image",
-        originalName: req.file.originalname,
-      },
+      url: result.secure_url,
+      publicId: result.public_id,
     });
-
   } catch (error) {
-
-    console.error(
-      "Cloudinary Upload Error:",
-      error
-    );
-
+    console.error("Upload evidence error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to upload evidence",
+      message: "Failed to upload evidence file",
     });
   }
 };
+
+
+// ==========================================
+// ML SERVICE INTEGRATION HELPER
+// ==========================================
+
+async function analyzeComplaint(text) {
+  let primaryUrl = process.env.ML_SERVICE_URL || "http://192.168.29.147:8000/analyze";
+  if (!primaryUrl.endsWith("/analyze")) {
+    primaryUrl = primaryUrl.replace(/\/+$/, "") + "/analyze";
+  }
+  try {
+    const r = await fetch(primaryUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) throw new Error(`ML service ${r.status}`);
+    return await r.json();
+  } catch (primaryErr) {
+    // If primary IP fails, attempt localhost fallback
+    try {
+      const localR = await fetch("http://127.0.0.1:8000/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(3000),
+      });
+      if (localR.ok) return await localR.json();
+    } catch (_) {}
+    throw primaryErr;
+  }
+}
 
 
 // ==========================================
@@ -117,39 +143,83 @@ export const classifyIssue = async (req, res) => {
     }
 
     const text = `${title || ""} ${description || ""}`.trim();
+    let rawLabel = "other";
+    let mlData = null;
 
-    const predictScript = path.resolve(
-      __dirname,
-      "../../Text_Model/src/predict.py"
-    );
+    // 1. Try FastAPI ML Service (http://192.168.29.147:8000/analyze with fallback)
+    mlData = await analyzeComplaint(text).catch(() => null);
+    if (mlData && mlData.category) {
+      rawLabel = mlData.category.trim().toLowerCase();
+    }
 
-    const result = await new Promise((resolve, reject) => {
-      const py = spawn("python", [predictScript, text]);
+    // 2. Fallback to predict.py python process if FastAPI service didn't return a category
+    if (rawLabel === "other") {
+      try {
+        const predictScript = path.resolve(
+          __dirname,
+          "../../Text_Model/src/predict.py"
+        );
 
-      let stdout = "";
-      let stderr = "";
+        const result = await new Promise((resolve, reject) => {
+          const py = spawn("python", [predictScript, text]);
 
-      py.stdout.on("data", (d) => (stdout += d.toString()));
-      py.stderr.on("data", (d) => (stderr += d.toString()));
+          let stdout = "";
+          let stderr = "";
 
-      py.on("close", (code) => {
-        if (code !== 0) {
-          reject(new Error(stderr || "predict.py exited with code " + code));
-        } else {
-          resolve(stdout.trim());
+          py.stdout.on("data", (d) => (stdout += d.toString()));
+          py.stderr.on("data", (d) => (stderr += d.toString()));
+
+          py.on("close", (code) => {
+            if (code !== 0) {
+              reject(new Error(stderr || "predict.py exited with code " + code));
+            } else {
+              resolve(stdout.trim());
+            }
+          });
+        });
+
+        const match = result.match(/Category:\s*(.+)/i);
+        if (match) {
+          rawLabel = match[1].trim().toLowerCase();
         }
-      });
-    });
+      } catch (pyErr) {
+        console.error("Predict script fallback error:", pyErr.message);
+      }
+    }
 
-    // Output format: "Category: label"
-    const match = result.match(/Category:\s*(.+)/i);
-    const rawLabel = match ? match[1].trim().toLowerCase() : "other";
-    const dbCategory = LABEL_MAP[rawLabel] || "other";
+    let dbCategory = "other";
+    const cleanRaw = (rawLabel || "").trim().toLowerCase();
+    if (LABEL_MAP[cleanRaw]) {
+      dbCategory = LABEL_MAP[cleanRaw];
+    } else {
+      const MODEL_CATEGORIES = [
+        "accessibility",
+        "agriculture",
+        "education",
+        "energy",
+        "environment",
+        "healthcare",
+        "public administration",
+        "rural livelihood",
+        "urban development",
+        "water related",
+        "other",
+      ];
+      if (MODEL_CATEGORIES.includes(cleanRaw)) {
+        dbCategory = cleanRaw;
+      }
+    }
 
     return res.status(200).json({
       success: true,
       rawLabel,
       category: dbCategory,
+      ml: mlData ? {
+        originalComplaintIndex: mlData.original_complaint_index ?? null,
+        similarityScore: mlData.similarity_score ?? null,
+        similarComplaint: mlData.similar_complaint ?? null,
+        isDuplicate: Boolean(mlData.similarity_score && mlData.similarity_score >= 0.85),
+      } : null,
     });
 
   } catch (error) {
@@ -164,7 +234,7 @@ export const classifyIssue = async (req, res) => {
 
 export const submitIssue = async (req, res) => {
   try {
-    const { title, description, category, photos, videos, location } = req.body;
+    const { title, description, category: userCategory, photos, videos, location } = req.body;
 
     if (!title || !description) {
       return res.status(400).json({
@@ -173,21 +243,69 @@ export const submitIssue = async (req, res) => {
       });
     }
 
+    // Call ML service from server side with safety catch
+    const textToAnalyze = `${title}. ${description}`;
+    const ml = await analyzeComplaint(textToAnalyze).catch(() => null);
+
+    let rawCategory = ml?.category ? ml.category.trim().toLowerCase() : null;
+    let finalCategory = userCategory || "other";
+
+    if (rawCategory) {
+      if (LABEL_MAP[rawCategory]) {
+        finalCategory = LABEL_MAP[rawCategory];
+      } else {
+        const MODEL_CATEGORIES = [
+          "accessibility",
+          "agriculture",
+          "education",
+          "energy",
+          "environment",
+          "healthcare",
+          "public administration",
+          "rural livelihood",
+          "urban development",
+          "water related",
+          "other",
+        ];
+        if (MODEL_CATEGORIES.includes(rawCategory)) {
+          finalCategory = rawCategory;
+        }
+      }
+    }
+
+    const duplicateOf = ml?.original_complaint_index ?? null;
+    const similarityScore = ml?.similarity_score ?? null;
+    const isDuplicate = Boolean(similarityScore !== null && similarityScore >= 0.85);
+
     const issue = await Issue.create({
       citizenId: req.user.userId,
       title: title.trim(),
       description: description.trim(),
-      category: category || "other",
+      category: finalCategory,
       photos: photos || [],
       videos: videos || [],
       location: location || {},
       status: "submitted",
+      mlAnalysis: ml ? {
+        rawCategory,
+        category: finalCategory,
+        similarityScore,
+        originalComplaintIndex: duplicateOf,
+        similarComplaint: ml.similar_complaint || null,
+        isDuplicate,
+      } : undefined,
     });
 
     return res.status(201).json({
       success: true,
       message: "Issue reported successfully",
       issue,
+      mlAnalysis: ml ? {
+        category: finalCategory,
+        originalComplaintIndex: duplicateOf,
+        similarityScore,
+        isDuplicate,
+      } : null,
     });
   } catch (error) {
     console.error("Submit Issue Error:", error);
@@ -197,6 +315,7 @@ export const submitIssue = async (req, res) => {
     });
   }
 };
+
 
 export const getMyIssues = async (req, res) => {
   try {

@@ -25,16 +25,24 @@ const issueSchema = new mongoose.Schema(
     category: {
       type: String,
       enum: [
+        "accessibility",
+        "agriculture",
+        "education",
+        "energy",
+        "environment",
+        "healthcare",
+        "public administration",
+        "rural livelihood",
+        "urban development",
+        "water related",
+        "other",
         "infrastructure",
         "water_management",
         "sanitation",
         "roads_traffic",
-        "environment",
         "electricity",
-        "education",
         "health",
         "social",
-        "other",
       ],
       default: "other",
     },
@@ -113,6 +121,15 @@ const issueSchema = new mongoose.Schema(
     assignedAt: {
       type: Date,
       default: null,
+    },
+
+    mlAnalysis: {
+      rawCategory: { type: String },
+      category: { type: String },
+      similarityScore: { type: Number },
+      originalComplaintIndex: { type: Number },
+      similarComplaint: { type: String },
+      isDuplicate: { type: Boolean, default: false },
     },
   },
   {

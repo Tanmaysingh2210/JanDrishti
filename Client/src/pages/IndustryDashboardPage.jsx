@@ -13,7 +13,23 @@ function IndustryDashboardPage() {
   const [showNotificationsMenu, setShowNotificationsMenu] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  // Dynamic state
+  // Dynamic API State
+  const [opportunities, setOpportunities] = useState([]);
+  const [loadingOpportunities, setLoadingOpportunities] = useState(false);
+  const [submittedProposals, setSubmittedProposals] = useState([]);
+  const [loadingProposals, setLoadingProposals] = useState(false);
+  const [submittingProposal, setSubmittingProposal] = useState(false);
+
+  // Proposal Modal Form State
+  const [pledgeForm, setPledgeForm] = useState({
+    title: '',
+    offeringType: 'funding',
+    estimatedValue: '500000',
+    timeline: '6 Months',
+    resourcesOffered: 'Financial Grant & Technical Mentorship',
+    description: '',
+  });
+
   const [initiativeForm, setInitiativeForm] = useState({
     title: '',
     sector: 'CSR Clean Energy',
@@ -27,41 +43,107 @@ function IndustryDashboardPage() {
     setTimeout(() => setToastMessage(null), 4500);
   };
 
-  const [opportunities, setOpportunities] = useState([
-    {
-      id: 'OPP-301',
-      title: 'Smart Irrigation & Water Management Pilot',
-      category: 'Agriculture & Water',
-      priority: 'High Priority',
-      priorityColor: 'bg-[#2F36ED]/10 text-[#2F36ED] border-[#2F36ED]/20',
-      location: 'Northern District',
-      budget: '₹15,00,00,000',
-      description: 'Implementation of AI-driven IoT water management systems across northern agricultural districts to optimize crop yield and conserve groundwater.',
-      img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBXFmR9DRih1w52v1dj3WyZgtivDAyjWMhEGDhK5rts2vQbYltDdi6L0gsYM4V0mkL25uGSil3xxjteiB7YMREk2w4WPxZFO2MQHU-sOlELwg6zphE86R4PiHKofRqQtmoCi4WsRRPIZq4Xp4LDGFSyhLBAFU4hjcZN_mc_i3xNiUyMzrGeinPQ17aiamR9CUDz-bPprZ1qwwi8pkNaQ7q-rH7E2OTbXq7SzqHkssEJwGjDzA7f-gb0'
-    },
-    {
-      id: 'OPP-304',
-      title: 'Clean Drinking Water Access Infrastructure',
-      category: 'Public Health',
-      priority: 'Medium Priority',
-      priorityColor: 'bg-[#F1F3F5] text-[#454556] border-[#DFE3E8]',
-      location: 'Eastern Rural Belt',
-      budget: '₹32,00,00,000',
-      description: 'Development of robust water purification plants and rural distribution networks targeting underserved communities without basic access.',
-      img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuClV8wmJgvhazj78Rf9VeZOFAdBz0un09ZMid9JcsN6SIH4jd634-ORMWRbHoxC6qgCaEh8fgRGqjPoI6FQRnBtyKbt5jbXhxpQOq4de-kpOUCkIPpD3vj4wRJO3FGvnv-XtySmDowbVutz1ug8Dr-a7YH5S_TpnAKhCFyjjB9XitElpk327YLCSY3pVD-Gxnuk_9PiDfJxFvRxV57e9bF3dHvaLUYXpRcNCYtCXSlneD9HLsQ8ERPQ'
-    },
-    {
-      id: 'OPP-312',
-      title: 'Solar Powered Microgrid Grid Storage Extension',
-      category: 'Renewable Energy',
-      priority: 'High Priority',
-      priorityColor: 'bg-[#2F36ED]/10 text-[#2F36ED] border-[#2F36ED]/20',
-      location: 'Central Tribal Zone',
-      budget: '₹22,50,00,000',
-      description: 'Deploying lithium-ferro battery banks to support solar microgrids in 45 off-grid tribal hamlets.',
-      img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDq5aWwAezYxo9KlKGncZNz88VMvTlmCks9au7hKyb7_S5rYD50Juk42QkF_poA734gLKx3xkxrm5XG_53qTVEipcl2kCeRrv1CZXDXMKniuJBIveSLsAxHTFt0Ss3mKX1c_nqIcglbsDCUkHb01XE300iQxrQ6GfZiIAaFvh18LTsVW0OeEhAw5JAzBFUJrYwUjfNnZJO0BbkZixSjyr8zkV3EXF2HyOVaOJQ0RhpPgDxv3BL1wBL5'
+  React.useEffect(() => {
+    fetchOpportunities();
+    fetchSubmittedProposals();
+  }, []);
+
+  const fetchOpportunities = async () => {
+    setLoadingOpportunities(true);
+    try {
+      const res = await fetch('http://localhost:3000/api/industry/proposals/projects', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.projects)) {
+        setOpportunities(data.projects);
+      }
+    } catch (err) {
+      console.error('Error fetching opportunities:', err);
+    } finally {
+      setLoadingOpportunities(false);
     }
-  ]);
+  };
+
+  const fetchSubmittedProposals = async () => {
+    setLoadingProposals(true);
+    try {
+      const res = await fetch('http://localhost:3000/api/industry/proposals/my', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.proposals)) {
+        setSubmittedProposals(data.proposals);
+      }
+    } catch (err) {
+      console.error('Error fetching industry proposals:', err);
+    } finally {
+      setLoadingProposals(false);
+    }
+  };
+
+  const openPledgeModal = (opp) => {
+    setSelectedOpportunityModal(opp);
+    const oppTitle = opp.title || opp.issueId?.title || 'Project';
+    setPledgeForm({
+      title: `CSR Sponsorship & Grant for ${oppTitle}`,
+      offeringType: 'funding',
+      estimatedValue: '500000',
+      timeline: '6 Months',
+      resourcesOffered: 'Financial CSR Grant & Technical Equipment',
+      description: `Corporate CSR Grant & Technology Support offered by Industry for ${oppTitle}.`,
+    });
+  };
+
+  const handlePledgeFundingSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedOpportunityModal || !pledgeForm.title) return;
+
+    setSubmittingProposal(true);
+    try {
+      const projectId = selectedOpportunityModal._id;
+      const issueId = selectedOpportunityModal.issueId?._id || selectedOpportunityModal.issueId || selectedOpportunityModal._id;
+      const universityId = selectedOpportunityModal.universityId?._id || selectedOpportunityModal.universityId;
+
+      const payload = {
+        projectId,
+        issueId,
+        universityId,
+        title: pledgeForm.title.trim(),
+        offeringType: pledgeForm.offeringType,
+        description: pledgeForm.description.trim(),
+        resourcesOffered: pledgeForm.resourcesOffered.trim(),
+        estimatedValue: Number(pledgeForm.estimatedValue) || 500000,
+        timeline: pledgeForm.timeline,
+      };
+
+      const res = await fetch('http://localhost:3000/api/industry/proposals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        showToast(`CSR Proposal "${pledgeForm.title}" submitted to University!`);
+        setSelectedOpportunityModal(null);
+        fetchSubmittedProposals();
+      } else {
+        showToast(data.message || 'Error submitting CSR proposal.');
+      }
+    } catch (err) {
+      console.error('Error submitting industry proposal:', err);
+      showToast('Error submitting proposal to university.');
+    } finally {
+      setSubmittingProposal(false);
+    }
+  };
 
   const [requests, setRequests] = useState([
     { id: 'REQ-88', company: 'TechCorp CSR Foundation', project: 'Digital Literacy & Skill Program', status: 'Pending', statusColor: 'bg-[#F36F56]/10 text-[#F36F56]' },
@@ -75,9 +157,11 @@ function IndustryDashboardPage() {
     { id: 3, title: 'Quarterly Impact Benchmark', time: '4h ago', text: 'Q3 Citizen Impact target reached 1.2 Million beneficiaries.' }
   ]);
 
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { id: 'challenges', label: 'Opportunities', icon: 'warning' },
+    { id: 'challenges', label: 'Opportunities (Govt Approved)', icon: 'explore', badge: opportunities.length > 0 ? opportunities.length : null },
+    { id: 'my_proposals', label: 'My CSR Proposals', icon: 'assignment_turned_in', badge: submittedProposals.length > 0 ? submittedProposals.length : null },
     { id: 'projects', label: 'CSR Projects', icon: 'assignment' },
     { id: 'institutions', label: 'Institutions', icon: 'account_balance' },
     { id: 'industry', label: 'Corporate Partners', icon: 'factory' },
@@ -225,15 +309,7 @@ function IndustryDashboardPage() {
                   <p className="text-xs font-bold text-[#0F172A]">TechCorp CSR Foundation</p>
                   <p className="text-[10px] text-[#454556]">csr.partner@techcorp.com</p>
                 </div>
-                <button onClick={() => navigate('/dashboard')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[#0F172A] hover:bg-[#F1F3F5] rounded-xl flex items-center gap-2 mt-1">
-                  <span className="material-symbols-outlined text-base text-[#2F36ED]">admin_panel_settings</span>
-                  Switch to Govt View
-                </button>
-                <button onClick={() => navigate('/university-dashboard')} className="w-full text-left px-3 py-2 text-xs font-semibold text-[#0F172A] hover:bg-[#F1F3F5] rounded-xl flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base text-emerald-600">school</span>
-                  Switch to Univ View
-                </button>
-                <button onClick={() => navigate('/')} className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-2 border-t border-[#DFE3E8] mt-1 pt-2">
+                <button onClick={() => navigate('/')} className="w-full text-left px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-2 mt-1">
                   <span className="material-symbols-outlined text-base">power_settings_new</span>
                   Log Out
                 </button>
@@ -269,7 +345,12 @@ function IndustryDashboardPage() {
                   >
                     {item.icon}
                   </span>
-                  {item.label}
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {item.badge != null && (
+                    <span className="px-2 py-0.5 text-[10px] font-extrabold bg-[#2F36ED] text-white rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -335,17 +416,17 @@ function IndustryDashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* KPI Card 1 */}
                 <div 
-                  onClick={() => setActiveView('industry')}
+                  onClick={() => setActiveView('my_proposals')}
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#2F36ED] transition-all cursor-pointer group"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Active Partnerships</p>
-                    <span className="material-symbols-outlined text-[#2F36ED] text-[22px] group-hover:scale-110 transition-transform">handshake</span>
+                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Proposals Sent to University</p>
+                    <span className="material-symbols-outlined text-[#2F36ED] text-[22px] group-hover:scale-110 transition-transform">send</span>
                   </div>
-                  <h3 className="text-3xl font-bold text-[#0F172A] mb-2">142</h3>
-                  <div className="flex items-center text-xs font-semibold text-[#F36F56]">
-                    <span className="material-symbols-outlined text-[16px] mr-1">trending_up</span>
-                    <span>+12% this quarter</span>
+                  <h3 className="text-3xl font-bold text-[#0F172A] mb-2">{submittedProposals.length}</h3>
+                  <div className="flex items-center text-xs font-semibold text-[#2F36ED]">
+                    <span className="material-symbols-outlined text-[16px] mr-1">school</span>
+                    <span>{submittedProposals.filter(p => p.status === 'accepted').length} Accepted by Universities</span>
                   </div>
                 </div>
 
@@ -355,13 +436,15 @@ function IndustryDashboardPage() {
                   className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs hover:shadow-md hover:border-[#2F36ED] transition-all cursor-pointer group"
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Total Funds Deployed</p>
+                    <p className="text-xs font-bold text-[#454556] uppercase tracking-wider">Total CSR Value Offered</p>
                     <span className="material-symbols-outlined text-[#2F36ED] text-[22px] group-hover:scale-110 transition-transform">payments</span>
                   </div>
-                  <h3 className="text-3xl font-bold text-[#0F172A] mb-2">₹4.2B</h3>
+                  <h3 className="text-3xl font-bold text-[#0F172A] mb-2">
+                    ₹{submittedProposals.reduce((sum, p) => sum + (p.estimatedValue || 0), 0).toLocaleString('en-IN') || '0'}
+                  </h3>
                   <div className="flex items-center text-xs font-semibold text-[#F36F56]">
                     <span className="material-symbols-outlined text-[16px] mr-1">trending_up</span>
-                    <span>+8.4% this quarter</span>
+                    <span>Live CSR Deployments</span>
                   </div>
                 </div>
 
@@ -518,51 +601,211 @@ function IndustryDashboardPage() {
             </div>
           )}
 
-          {/* OPPORTUNITIES VIEW */}
+          {/* OPPORTUNITIES VIEW (Govt Approved Projects) */}
           {activeView === 'challenges' && (
             <div className="max-w-[1280px] mx-auto space-y-6">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-bold text-[#0F172A]">Civic Impact Opportunities</h1>
-                  <p className="text-sm text-[#454556]">High-impact state challenges ready for corporate sponsorship and CSR funding</p>
+                  <h1 className="text-2xl font-bold text-[#0F172A]">Govt-Approved Civic Opportunities</h1>
+                  <p className="text-sm text-[#454556]">Projects assigned to Universities by Government, ready for Industry CSR funding &amp; tech proposals</p>
                 </div>
-                <input
-                  type="text"
-                  placeholder="Filter opportunities..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="px-4 py-2 text-xs border border-[#DFE3E8] rounded-xl bg-white focus:outline-none focus:border-[#2F36ED]"
-                />
+                <button
+                  onClick={fetchOpportunities}
+                  className="px-4 py-2 text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 rounded-xl hover:bg-[#2F36ED]/20 flex items-center gap-1 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">refresh</span> Refresh
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {opportunities.map((opp) => (
-                  <div key={opp.id} className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-[#2F36ED] transition-all">
-                    <div>
-                      <div className="flex justify-between items-start mb-3">
-                        <span className="text-xs font-semibold text-[#2F36ED] bg-[#2F36ED]/10 px-2.5 py-1 rounded-md">{opp.category}</span>
-                        <span className="text-xs font-mono font-bold text-[#454556]">{opp.id}</span>
+              {loadingOpportunities ? (
+                <div className="flex items-center gap-2 text-xs text-[#454556] py-8 justify-center">
+                  <span className="material-symbols-outlined text-base animate-spin text-[#2F36ED]">progress_activity</span>
+                  Loading opportunities...
+                </div>
+              ) : opportunities.length === 0 ? (
+                <div className="p-8 bg-white border border-[#DFE3E8] rounded-2xl text-center text-xs text-[#454556] space-y-2">
+                  <span className="material-symbols-outlined text-4xl text-[#2F36ED]">school</span>
+                  <p className="font-bold text-[#0F172A] text-sm">No Government-Approved Projects Available Yet</p>
+                  <p className="max-w-md mx-auto">When the Government accepts a University proposal, the project will automatically appear here as an Opportunity for Industry CSR funding.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {opportunities.map((opp) => {
+                    const univName = opp.universityId?.name || opp.assignedUniversityId?.name || 'Assigned University';
+                    const oppTitle = opp.title || opp.issueId?.title || 'Civic Infrastructure Project';
+                    const oppDesc = opp.issueId?.description || opp.description || 'Assigned academic R&D project approved by government.';
+                    const category = opp.issueId?.category || 'R&D Innovation';
+                    const locationStr = opp.issueId?.location?.district || opp.universityId?.district || 'Jharkhand';
+
+                    return (
+                      <div key={opp._id} className="bg-white border border-[#DFE3E8] rounded-2xl p-6 shadow-xs flex flex-col justify-between hover:border-[#2F36ED] transition-all space-y-4">
+                        <div>
+                          <div className="flex justify-between items-start mb-3 gap-2">
+                            <span className="text-xs font-semibold text-[#2F36ED] bg-[#2F36ED]/10 px-2.5 py-1 rounded-md uppercase tracking-wider">{category}</span>
+                            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-sm">school</span> {univName}
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-bold text-[#0F172A] mb-2">{oppTitle}</h3>
+                          <p className="text-xs text-[#454556] line-clamp-3 leading-relaxed">{oppDesc}</p>
+                        </div>
+
+                        <div className="border-t border-[#DFE3E8] pt-4 flex justify-between items-center">
+                          <div className="text-xs">
+                            <span className="text-[#767588] block text-[10px]">Location</span>
+                            <span className="font-bold text-[#0F172A]">{locationStr}</span>
+                          </div>
+                          <button
+                            onClick={() => openPledgeModal(opp)}
+                            className="bg-[#F36F56] text-white px-5 py-2.5 rounded-xl text-xs font-bold hover:bg-[#d95d46] transition-all cursor-pointer shadow-md shadow-[#F36F56]/20 flex items-center gap-1.5"
+                          >
+                            <span className="material-symbols-outlined text-sm">send</span>
+                            Send Proposal to University
+                          </button>
+                        </div>
                       </div>
-                      <h3 className="text-lg font-bold text-[#0F172A] mb-2">{opp.title}</h3>
-                      <p className="text-xs text-[#454556] mb-4 leading-relaxed">{opp.description}</p>
-                    </div>
-                    <div className="border-t border-[#DFE3E8] pt-4 flex justify-between items-center">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-[#454556] block">Required Funding</span>
-                        <span className="text-base font-bold text-emerald-600">{opp.budget}</span>
-                      </div>
-                      <button
-                        onClick={() => setSelectedOpportunityModal(opp)}
-                        className="bg-[#F36F56] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-opacity-90 transition-all cursor-pointer shadow-2xs"
-                      >
-                        Pledge Funding
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
+
+          {/* MY CSR PROPOSALS VIEW */}
+          {activeView === 'my_proposals' && (
+            <div className="max-w-[1280px] mx-auto space-y-6">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-[#0F172A]">My Submitted CSR Proposals</h1>
+                  <p className="text-sm text-[#454556]">Track all CSR funding &amp; tech proposals sent to Universities</p>
+                </div>
+                <button
+                  onClick={fetchSubmittedProposals}
+                  className="px-4 py-2 text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 rounded-xl hover:bg-[#2F36ED]/20 flex items-center gap-1 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-sm">refresh</span> Refresh
+                </button>
+              </div>
+
+              {/* STATS SUMMARY BAR */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded-2xl border border-[#DFE3E8] shadow-xs flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-[#2F36ED]/10 text-[#2F36ED] flex items-center justify-center font-bold text-xl shrink-0">
+                    <span className="material-symbols-outlined">send</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-[#767588] uppercase tracking-wider block">Total Proposals Sent</span>
+                    <span className="text-2xl font-black text-[#0F172A]">{submittedProposals.length}</span>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-[#DFE3E8] shadow-xs flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shrink-0">
+                    <span className="material-symbols-outlined">check_circle</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-[#767588] uppercase tracking-wider block">Accepted by University</span>
+                    <span className="text-2xl font-black text-emerald-600">
+                      {submittedProposals.filter(p => p.status === 'accepted').length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-[#DFE3E8] shadow-xs flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xl shrink-0">
+                    <span className="material-symbols-outlined">schedule</span>
+                  </div>
+                  <div>
+                    <span className="text-[11px] font-bold text-[#767588] uppercase tracking-wider block">Pending / Under Review</span>
+                    <span className="text-2xl font-black text-blue-600">
+                      {submittedProposals.filter(p => p.status === 'submitted' || p.status === 'pending').length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {loadingProposals ? (
+                <div className="flex items-center gap-2 text-xs text-[#454556] py-8 justify-center">
+                  <span className="material-symbols-outlined text-base animate-spin text-[#2F36ED]">progress_activity</span>
+                  Loading proposals...
+                </div>
+              ) : submittedProposals.length === 0 ? (
+                <div className="p-8 bg-white border border-[#DFE3E8] rounded-2xl text-center text-xs text-[#454556] space-y-2">
+                  <span className="material-symbols-outlined text-4xl text-[#2F36ED]">assignment_turned_in</span>
+                  <p className="font-bold text-[#0F172A] text-sm">No Industry Proposals Submitted Yet</p>
+                  <p className="max-w-md mx-auto">Go to the "Opportunities" tab, select an assigned University project, and submit your CSR funding proposal.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {submittedProposals.map((prop) => {
+                    const isAccepted = prop.status === 'accepted';
+                    const isRejected = prop.status === 'rejected';
+                    const univName = prop.universityId?.name || 'Assigned University';
+
+                    return (
+                      <div
+                        key={prop._id}
+                        className={`bg-white border ${
+                          isAccepted ? 'border-emerald-400 bg-emerald-50/10 shadow-md ring-1 ring-emerald-300' :
+                          isRejected ? 'border-red-200 bg-red-50/10' :
+                          'border-[#DFE3E8] shadow-xs'
+                        } rounded-2xl p-6 flex flex-col justify-between space-y-4 transition-all`}
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-2 gap-2">
+                            <h3 className="text-base font-bold text-[#0F172A] flex-1">{prop.title}</h3>
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase shrink-0 ${
+                              isAccepted ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                              isRejected ? 'bg-red-100 text-red-700 border border-red-200' :
+                              'bg-blue-100 text-blue-700 border border-blue-200'
+                            }`}>
+                              {isAccepted ? 'ACCEPTED BY UNIVERSITY' : isRejected ? 'DECLINED' : prop.status}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-[#2F36ED] font-semibold mb-2 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm">school</span>
+                            University: <strong>{univName}</strong>
+                          </p>
+
+                          <p className="text-xs text-[#454556] bg-[#F1F3F5] p-3 rounded-xl border border-[#DFE3E8] leading-relaxed line-clamp-3">
+                            {prop.description}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-xs border-t border-[#DFE3E8] pt-3">
+                          <div className="bg-[#F1F3F5] p-2.5 rounded-xl border border-[#DFE3E8]">
+                            <span className="text-[#767588] block text-[10px]">Offered CSR Value</span>
+                            <span className="font-extrabold text-emerald-600">₹{prop.estimatedValue?.toLocaleString('en-IN') || '—'}</span>
+                          </div>
+                          <div className="bg-[#F1F3F5] p-2.5 rounded-xl border border-[#DFE3E8]">
+                            <span className="text-[#767588] block text-[10px]">Offering Type</span>
+                            <span className="font-extrabold text-[#0F172A] capitalize">{prop.offeringType || 'Funding'}</span>
+                          </div>
+                        </div>
+
+                        {isAccepted && (
+                          <div className="flex items-center gap-2 text-xs text-emerald-700 font-bold bg-emerald-100/80 p-3 rounded-xl border border-emerald-300">
+                            <span className="material-symbols-outlined text-lg text-emerald-600">verified</span>
+                            <span>Proposal Accepted by {univName}! CSR Funding &amp; Project Active.</span>
+                          </div>
+                        )}
+
+                        {isRejected && (
+                          <div className="flex items-center gap-2 text-xs text-red-700 font-semibold bg-red-50 p-2.5 rounded-xl border border-red-200">
+                            <span className="material-symbols-outlined text-sm text-red-600">cancel</span>
+                            <span>Proposal declined by university.</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+              )}
+            </div>
+          )}
+
 
           {/* CSR PROJECTS VIEW */}
           {activeView === 'projects' && (
@@ -627,10 +870,10 @@ function IndustryDashboardPage() {
         </main>
       </div>
 
-      {/* Pledge Funding Modal */}
+      {/* Send Proposal to University Modal */}
       {selectedOpportunityModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl border border-[#DFE3E8] relative animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-8 shadow-2xl border border-[#DFE3E8] relative animate-in fade-in zoom-in-95 space-y-4">
             <button
               onClick={() => setSelectedOpportunityModal(null)}
               className="absolute top-4 right-4 text-[#454556] hover:text-[#0F172A] cursor-pointer"
@@ -638,64 +881,93 @@ function IndustryDashboardPage() {
               <span className="material-symbols-outlined">close</span>
             </button>
 
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-mono font-bold text-[#2F36ED] bg-[#2F36ED]/10 px-2.5 py-1 rounded-md">{selectedOpportunityModal.id}</span>
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-md">Est. {selectedOpportunityModal.budget}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#2F36ED] bg-[#2F36ED]/10 px-2.5 py-1 rounded-md flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">school</span>
+                {selectedOpportunityModal.universityId?.name || selectedOpportunityModal.assignedUniversityId?.name || 'Assigned University'}
+              </span>
             </div>
 
-            <h3 className="text-xl font-bold text-[#0F172A] mb-2">{selectedOpportunityModal.title}</h3>
-            <p className="text-xs text-[#454556] mb-6">{selectedOpportunityModal.description}</p>
+            <h3 className="text-lg font-bold text-[#0F172A] leading-tight">
+              {selectedOpportunityModal.title || selectedOpportunityModal.issueId?.title}
+            </h3>
 
-            <form onSubmit={handlePledgeFunding} className="space-y-4">
+            <form onSubmit={handlePledgeFundingSubmit} className="space-y-4 pt-2">
               <div>
-                <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Corporate Entity</label>
+                <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">CSR Proposal Title</label>
                 <input
                   type="text"
                   required
-                  defaultValue="TechCorp CSR Foundation"
+                  value={pledgeForm.title}
+                  onChange={(e) => setPledgeForm({ ...pledgeForm, title: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Pledged Amount (₹)</label>
-                  <input
-                    type="text"
-                    required
-                    defaultValue={selectedOpportunityModal.budget}
-                    className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
-                  />
+                  <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Offering Type</label>
+                  <select
+                    value={pledgeForm.offeringType}
+                    onChange={(e) => setPledgeForm({ ...pledgeForm, offeringType: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs bg-white focus:border-[#2F36ED] outline-none"
+                  >
+                    <option value="funding">Funding / Grant</option>
+                    <option value="technology">Technology Support</option>
+                    <option value="equipment">Equipment &amp; Hardware</option>
+                    <option value="services">Technical Services</option>
+                    <option value="mentorship">Mentorship &amp; R&amp;D</option>
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Target Completion</label>
+                  <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Offered Value (₹)</label>
                   <input
-                    type="text"
-                    defaultValue="Q4 2026"
+                    type="number"
+                    required
+                    value={pledgeForm.estimatedValue}
+                    onChange={(e) => setPledgeForm({ ...pledgeForm, estimatedValue: e.target.value })}
                     className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-[#0F172A] mb-1">Proposal Details &amp; Objectives</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={pledgeForm.description}
+                  onChange={(e) => setPledgeForm({ ...pledgeForm, description: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#DFE3E8] text-xs focus:border-[#2F36ED] outline-none"
+                  placeholder="Describe your CSR sponsorship goals, technical support, and resources offered..."
+                />
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setSelectedOpportunityModal(null)}
-                  className="flex-1 py-2.5 border border-[#DFE3E8] rounded-xl text-xs font-semibold text-[#454556] hover:bg-[#F1F3F5]"
+                  className="flex-1 py-2.5 border border-[#DFE3E8] rounded-xl text-xs font-semibold text-[#454556] hover:bg-[#F1F3F5] cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-[#F36F56] text-white rounded-xl text-xs font-bold shadow-md hover:bg-opacity-90 cursor-pointer"
+                  disabled={submittingProposal}
+                  className="flex-1 py-2.5 bg-[#F36F56] text-white rounded-xl text-xs font-bold shadow-md hover:bg-[#d95d46] transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-60"
                 >
-                  Confirm Funding Pledge
+                  {submittingProposal ? (
+                    <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Sending...</>
+                  ) : (
+                    <><span className="material-symbols-outlined text-sm">send</span> Submit Proposal to University</>
+                  )}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
 
       {/* New Initiative Modal */}
       {isInitiativeModalOpen && (

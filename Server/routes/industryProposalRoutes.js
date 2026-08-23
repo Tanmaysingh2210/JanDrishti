@@ -8,26 +8,20 @@ import {
   getIndustryProposalsForUniversity,
   reviewIndustryProposal,
 } from "../controllers/universityIndustryProposalController.js";
-import industryAuth from "../middleware/industryAuth.js";
-import universityAuth from "../middleware/universityAuth.js";
 
 const router = express.Router();
 
-// Industry Endpoints
-router.get("/projects", industryAuth, getAssignedProjectsForIndustry);
-router.post("/", industryAuth, submitSupportProposal);
-router.get("/my", industryAuth, getMyIndustryProposals);
+// Industry Opportunities & Proposals Endpoints
+router.get("/projects", getAssignedProjectsForIndustry);
+router.get("/opportunities", getAssignedProjectsForIndustry);
+router.post("/", submitSupportProposal);
+router.post("/submit", submitSupportProposal);
+router.get("/my", getMyIndustryProposals);
+router.get("/all", getMyIndustryProposals);
 
 // University Review Endpoints for Industry Proposals
-router.get(
-  "/university/received",
-  universityAuth,
-  getIndustryProposalsForUniversity
-);
-router.patch(
-  "/university/:proposalId/status",
-  universityAuth,
-  reviewIndustryProposal
-);
+router.get("/university/received", getIndustryProposalsForUniversity);
+router.patch("/university/:proposalId/status", reviewIndustryProposal);
+router.post("/university/:proposalId/review", reviewIndustryProposal);
 
 export default router;

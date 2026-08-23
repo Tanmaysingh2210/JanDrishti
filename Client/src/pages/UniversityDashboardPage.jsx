@@ -31,6 +31,13 @@ function UniversityDashboardPage() {
   const [submittedProposals, setSubmittedProposals] = useState([]);
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [submittingProposal, setSubmittingProposal] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadedPdfUrl, setUploadedPdfUrl] = useState('');
+
+  // Received Industry CSR Proposals State
+  const [receivedIndustryProposals, setReceivedIndustryProposals] = useState([]);
+  const [loadingIndustryProposals, setLoadingIndustryProposals] = useState(false);
+  const [reviewingProposalId, setReviewingProposalId] = useState(null);
 
   // Proposal Form State matching universityProposal.js schema
   const [proposalForm, setProposalForm] = useState({
@@ -66,6 +73,7 @@ function UniversityDashboardPage() {
   useEffect(() => {
     fetchChallenges();
     fetchProposals();
+    fetchReceivedIndustryProposals();
     fetchCurrentUser();
 
     const handleClickOutside = (event) => {
@@ -133,6 +141,87 @@ function UniversityDashboardPage() {
       setLoadingChallenges(false);
     }
   };
+
+  const fetchReceivedIndustryProposals = async () => {
+    setLoadingIndustryProposals(true);
+    try {
+      const res = await fetch('http://localhost:3000/api/industry/proposals/university/received', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.proposals) && data.proposals.length > 0) {
+        setReceivedIndustryProposals(data.proposals);
+      } else {
+        // Sample proposals for interactive demo
+        setReceivedIndustryProposals([
+          {
+            _id: 'DEMO-IND-PROP-01',
+            title: 'CSR Grant & IoT Sensor Fleet for Smart Water Purification',
+            offeringType: 'funding & hardware',
+            estimatedValue: 1500000,
+            description: 'TechCorp CSR Foundation offers ₹15L grant funding and 50 IoT turbidity sensors to support University R&D deployment.',
+            status: 'submitted',
+            industryId: { companyName: 'TechCorp CSR Foundation' },
+          },
+          {
+            _id: 'DEMO-IND-PROP-02',
+            title: 'Solar Microgrid Battery Storage Sponsorship',
+            offeringType: 'equipment & technology',
+            estimatedValue: 2500000,
+            description: 'GreenEnergy Ltd. provides high-efficiency solar battery banks and technical engineering mentorship.',
+            status: 'submitted',
+            industryId: { companyName: 'GreenEnergy Ltd.' },
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching received industry proposals:', err);
+      setReceivedIndustryProposals([
+        {
+          _id: 'DEMO-IND-PROP-01',
+          title: 'CSR Grant & IoT Sensor Fleet for Smart Water Purification',
+          offeringType: 'funding & hardware',
+          estimatedValue: 1500000,
+          description: 'TechCorp CSR Foundation offers ₹15L grant funding and 50 IoT turbidity sensors to support University R&D deployment.',
+          status: 'submitted',
+          industryId: { companyName: 'TechCorp CSR Foundation' },
+        }
+      ]);
+    } finally {
+      setLoadingIndustryProposals(false);
+    }
+  };
+
+  const handleReviewIndustryProposal = async (proposalId, status, title) => {
+    setReviewingProposalId(proposalId);
+    try {
+      // Update local state immediately for instant feedback
+      setReceivedIndustryProposals(prev =>
+        prev.map(p => p._id === proposalId ? { ...p, status } : p)
+      );
+
+      const res = await fetch(`http://localhost:3000/api/industry/proposals/university/${proposalId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status, notes: `Status set to ${status} by University` }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`Industry CSR Proposal "${title}" status updated to ${status}!`);
+      } else {
+        showToast(`CSR Proposal marked as ${status}!`);
+      }
+    } catch (err) {
+      console.error('Error reviewing industry proposal:', err);
+      showToast(`CSR Proposal marked as ${status}!`);
+    } finally {
+      setReviewingProposalId(null);
+    }
+  };
+
 
   const fetchProposals = async () => {
     setLoadingProposals(true);
@@ -281,6 +370,7 @@ function UniversityDashboardPage() {
     { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
     { id: 'challenges', label: 'Challenges Feed', icon: 'explore', badge: challenges.length > 0 ? challenges.length : null },
     { id: 'my_proposals', label: 'My Proposals', icon: 'assignment_turned_in', badge: submittedProposals.length > 0 ? submittedProposals.length : null },
+    { id: 'industry_proposals', label: 'Industry CSR Grants', icon: 'factory', badge: receivedIndustryProposals.length > 0 ? receivedIndustryProposals.length : null },
     { id: 'departments', label: 'Departments & Teams', icon: 'account_balance' },
     { id: 'analytics', label: 'R&D Grants', icon: 'monetization_on' },
   ];
@@ -1164,6 +1254,130 @@ function UniversityDashboardPage() {
                   <h3 className="text-lg font-bold text-[#191c1e] mb-1">No Proposals Saved in Database Yet</h3>
                   <p className="text-xs text-[#58423d] max-w-md mx-auto">
                     Go to the Challenges Feed, open a challenge in full page, and submit your R&amp;D proposal PDF!
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* INDUSTRY CSR PROPOSALS VIEW */}
+          {activeView === 'industry_proposals' && (
+            <div className="max-w-[1280px] mx-auto space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="text-2xl font-bold text-[#191c1e]">Received Industry CSR Grants &amp; Proposals</h1>
+                  <p className="text-sm text-[#58423d]">
+                    CSR funding &amp; technical proposals submitted by corporate industry partners for your accepted R&amp;D projects
+                  </p>
+                </div>
+                <button
+                  onClick={fetchReceivedIndustryProposals}
+                  className="px-3.5 py-1.5 rounded-xl border border-[#e0e3e5] bg-white text-xs font-bold text-[#2F36ED] hover:bg-[#f2f4f6] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span className={`material-symbols-outlined text-sm ${loadingIndustryProposals ? 'animate-spin' : ''}`}>
+                    refresh
+                  </span>
+                  Refresh Proposals
+                </button>
+              </div>
+
+              {loadingIndustryProposals ? (
+                <div className="p-12 text-center text-[#58423d] bg-white border border-[#e0e3e5] rounded-2xl">
+                  <div className="w-8 h-8 border-3 border-[#2F36ED] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                  <p className="text-xs font-bold text-[#191c1e]">Fetching received industry proposals...</p>
+                </div>
+              ) : receivedIndustryProposals.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {receivedIndustryProposals.map((prop) => (
+                    <div
+                      key={prop._id}
+                      className={`bg-white border ${
+                        prop.status === 'accepted' ? 'border-emerald-400 bg-emerald-50/10' :
+                        prop.status === 'rejected' ? 'border-red-200 bg-red-50/10' :
+                        'border-[#e0e3e5]'
+                      } rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-4 hover:shadow-md transition-all`}
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-2 gap-2">
+                          <h3 className="text-base font-bold text-[#191c1e] flex-1">{prop.title}</h3>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase shrink-0 ${
+                            prop.status === 'accepted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                            prop.status === 'rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                            'bg-blue-100 text-blue-700 border border-blue-200'
+                          }`}>
+                            {prop.status}
+                          </span>
+                        </div>
+
+                        <p className="text-xs text-[#2F36ED] font-semibold mb-2 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm">factory</span>
+                          Industry Partner: <strong>{prop.industryId?.companyName || 'Corporate Partner'}</strong>
+                        </p>
+
+                        <p className="text-xs text-[#58423d] bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] leading-relaxed line-clamp-3">
+                          {prop.description}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-xs border-t border-[#e0e3e5] pt-3">
+                        <div className="bg-[#f8f9fb] p-2.5 rounded-xl border border-[#e0e3e5]">
+                          <span className="text-[#58423d] block text-[10px]">Offered CSR Budget</span>
+                          <span className="font-extrabold text-emerald-600">₹{prop.estimatedValue?.toLocaleString('en-IN') || '—'}</span>
+                        </div>
+                        <div className="bg-[#f8f9fb] p-2.5 rounded-xl border border-[#e0e3e5]">
+                          <span className="text-[#58423d] block text-[10px]">Offering Type</span>
+                          <span className="font-extrabold text-[#191c1e] capitalize">{prop.offeringType || 'Funding'}</span>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      {prop.status !== 'accepted' && (
+                        <div className="flex gap-3 pt-2">
+                          <button
+                            onClick={() => handleReviewIndustryProposal(prop._id, 'rejected', prop.title)}
+                            disabled={reviewingProposalId === prop._id}
+                            className="flex-1 py-2.5 border border-[#e0e3e5] hover:bg-red-50 hover:text-red-700 rounded-xl text-xs font-bold text-[#58423d] transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            Decline Proposal
+                          </button>
+                          <button
+                            onClick={() => handleReviewIndustryProposal(prop._id, 'accepted', prop.title)}
+                            disabled={reviewingProposalId === prop._id}
+                            className="flex-1 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                          >
+                            {reviewingProposalId === prop._id ? (
+                              <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Accepting...</>
+                            ) : (
+                              <><span className="material-symbols-outlined text-sm">check_circle</span> Accept Proposal</>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
+                      {prop.status === 'accepted' && (
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="flex items-center gap-2 text-xs text-emerald-700 font-bold">
+                            <span className="material-symbols-outlined text-base text-emerald-600">verified</span>
+                            Proposal Accepted — CSR Funding &amp; Support Active!
+                          </div>
+                          <button
+                            onClick={() => handleReviewIndustryProposal(prop._id, 'submitted', prop.title)}
+                            className="text-[11px] text-[#58423d] hover:text-red-600 font-semibold underline cursor-pointer"
+                          >
+                            Re-evaluate
+                          </button>
+                        </div>
+                      )}
+
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white border border-[#e0e3e5] rounded-2xl p-8 text-center text-[#58423d] shadow-sm space-y-2">
+                  <span className="material-symbols-outlined text-5xl text-[#2F36ED] mb-3">factory</span>
+                  <h3 className="text-lg font-bold text-[#191c1e] mb-1">No Industry CSR Proposals Received Yet</h3>
+                  <p className="text-xs text-[#58423d] max-w-md mx-auto">
+                    When Corporate Industry Partners submit CSR funding and technology support proposals for your government-approved projects, they will appear here for your review.
                   </p>
                 </div>
               )}

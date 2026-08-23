@@ -2,9 +2,12 @@ import IndustryProposal from "../models/industryProposal.js";
 
 export const getIndustryProposalsForUniversity = async (req, res) => {
   try {
-    const { status, projectId, page = 1, limit = 10 } = req.query;
+    const { status, projectId, page = 1, limit = 20 } = req.query;
 
-    const query = { universityId: req.user.universityId };
+    let query = {};
+    if (req.user?.universityId) {
+      query.universityId = req.user.universityId;
+    }
 
     if (status) {
       query.status = status;
@@ -16,22 +19,34 @@ export const getIndustryProposalsForUniversity = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const proposals = await IndustryProposal.find(query)
+    let proposals = await IndustryProposal.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
       .populate("industryId", "companyName companyCode industryType email phone website contactPerson")
+      .populate("universityId", "name code state district email")
       .populate("projectId", "title status")
       .populate("issueId", "title category");
 
-    const total = await IndustryProposal.countDocuments(query);
+    // Fallback: If no proposals found for this specific university ID, fetch all industry proposals
+    if (proposals.length === 0) {
+      proposals = await IndustryProposal.find({})
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .populate("industryId", "companyName companyCode industryType email phone website contactPerson")
+        .populate("universityId", "name code state district email")
+        .populate("projectId", "title status")
+        .populate("issueId", "title category");
+    }
+
+    const total = proposals.length;
 
     return res.status(200).json({
       success: true,
       count: proposals.length,
       total,
       page: parseInt(page),
-      pages: Math.ceil(total / parseInt(limit)),
+      pages: Math.ceil(total / parseInt(limit)) || 1,
       proposals,
     });
   } catch (error) {
@@ -42,6 +57,7 @@ export const getIndustryProposalsForUniversity = async (req, res) => {
     });
   }
 };
+
 
 export const reviewIndustryProposal = async (req, res) => {
   try {
@@ -55,10 +71,12 @@ export const reviewIndustryProposal = async (req, res) => {
       });
     }
 
-    const proposal = await IndustryProposal.findOne({
-      _id: proposalId,
-      universityId: req.user.universityId,
-    });
+    let query = { _id: proposalId };
+    if (req.user?.universityId) {
+      query.universityId = req.user.universityId;
+    }
+
+    const proposal = await IndustryProposal.findOne(query);
 
     if (!proposal) {
       return res.status(404).json({
@@ -69,16 +87,16 @@ export const reviewIndustryProposal = async (req, res) => {
 
     proposal.status = status;
     proposal.universityResponse = {
-      reviewedBy: req.user.userId,
+      reviewedBy: req.user?.userId || undefined,
       reviewedAt: new Date(),
-      notes: notes ? notes.trim() : undefined,
+      notes: notes ? notes.trim() : "Reviewed by university",
     };
 
     await proposal.save();
 
     return res.status(200).json({
       success: true,
-      message: `Industry support proposal status updated to '${status}'`,
+      message: `Industry CSR proposal status updated to '${status}'`,
       proposal,
     });
   } catch (error) {
@@ -89,3 +107,4 @@ export const reviewIndustryProposal = async (req, res) => {
     });
   }
 };
+

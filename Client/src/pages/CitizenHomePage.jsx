@@ -29,20 +29,22 @@ function CitizenHomePage() {
   const [classifying, setClassifying] = useState(false);
   const [aiCategory, setAiCategory] = useState(null);  // { rawLabel, category }
   const [manualCategory, setManualCategory] = useState('');
+  const [userOverridden, setUserOverridden] = useState(false);
   const [showManualSelect, setShowManualSelect] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const CATEGORY_OPTIONS = [
-    { value: 'roads_traffic',    label: '🚧 Roads & Traffic' },
-    { value: 'water_management', label: '💧 Water Management' },
-    { value: 'sanitation',       label: '🗑️ Sanitation & Waste' },
-    { value: 'electricity',      label: '⚡ Electricity' },
-    { value: 'infrastructure',   label: '🏗️ Infrastructure' },
-    { value: 'environment',      label: '🌿 Environment' },
-    { value: 'education',        label: '📚 Education' },
-    { value: 'health',           label: '🏥 Health' },
-    { value: 'social',           label: '👥 Social' },
-    { value: 'other',            label: '📋 Other' },
+    { value: 'accessibility',         label: '♿ Accessibility' },
+    { value: 'agriculture',           label: '🌾 Agriculture' },
+    { value: 'education',             label: '📚 Education' },
+    { value: 'energy',                label: '⚡ Electricity / Solar energy' },
+    { value: 'environment',           label: '🌿 Environment' },
+    { value: 'healthcare',            label: '🏥 Healthcare' },
+    { value: 'public administration', label: '🏛️ Public Administration' },
+    { value: 'rural livelihood',      label: '🚜 Rural Livelihood' },
+    { value: 'urban development',     label: '🏙️ Urban Development' },
+    { value: 'water related',         label: '💧 Water Related' },
+    { value: 'other',                 label: '📋 Other' },
   ];
 
   const resetModal = () => {
@@ -50,6 +52,7 @@ function CitizenHomePage() {
     resetPhotos();
     setAiCategory(null);
     setManualCategory('');
+    setUserOverridden(false);
     setShowManualSelect(false);
     setShowReportModal(false);
   };
@@ -129,24 +132,27 @@ function CitizenHomePage() {
     if (file) uploadFile(file);
   };
 
-  // Call backend → predict.py
-  const handleClassify = async () => {
-    const text = `${newIssue.title} ${newIssue.description}`.trim();
-    if (!text) return;
+  // Call backend → predict.py / api.py model
+  const handleClassify = async (textOverride) => {
+    const titleVal = newIssue.title || '';
+    const descVal = typeof textOverride === 'string' ? textOverride : (newIssue.description || '');
+    const text = `${titleVal} ${descVal}`.trim();
+    if (!text || text.length < 4) return;
     setClassifying(true);
-    setAiCategory(null);
-    setManualCategory('');
-    setShowManualSelect(false);
     try {
       const res = await fetch('http://localhost:3000/api/citizen/issues/classify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ title: newIssue.title, description: newIssue.description }),
+        body: JSON.stringify({ title: titleVal, description: descVal }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.category) {
         setAiCategory({ rawLabel: data.rawLabel, category: data.category });
+        // Live update detected category unless citizen explicitly clicked a manual category button
+        if (!userOverridden) {
+          setManualCategory(data.category);
+        }
       }
     } catch (err) {
       console.error('Classify error:', err);
@@ -154,6 +160,17 @@ function CitizenHomePage() {
       setClassifying(false);
     }
   };
+
+  // Auto-detect category as user types description or title
+  useEffect(() => {
+    const text = `${newIssue.title} ${newIssue.description}`.trim();
+    if (text.length >= 5 && showReportModal) {
+      const timer = setTimeout(() => {
+        handleClassify();
+      }, 650);
+      return () => clearTimeout(timer);
+    }
+  }, [newIssue.title, newIssue.description, showReportModal]);
 
   const handleReportSubmit = async (e) => {
     e.preventDefault();
@@ -516,9 +533,15 @@ function CitizenHomePage() {
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : issue.status === 'in_progress' || issue.status === 'In Progress'
                               ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : issue.status === 'assigned' || issue.status === 'Assigned'
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
                               : 'bg-amber-50 text-amber-700 border border-amber-200'
                           }`}>
-                            {issue.status === 'submitted' || issue.status === 'under_review' ? 'Under Review' : issue.status}
+                            {issue.status === 'submitted' || issue.status === 'under_review'
+                              ? 'Under Review'
+                              : issue.status === 'assigned'
+                              ? 'Assigned'
+                              : issue.status}
                           </span>
                         </div>
 
@@ -534,8 +557,8 @@ function CitizenHomePage() {
                             <span className="material-symbols-outlined text-sm text-[#f36f56]">location_on</span>
                             <span className="font-semibold text-[#191c1e]">
                               {typeof issue.location === 'object' && issue.location !== null
-                                ? [issue.location.address, issue.location.district, issue.location.state].filter(Boolean).join(', ')
-                                : (issue.location || 'Location specified')}
+                                ? [issue.location.address, issue.location.district, issue.location.state].filter(Boolean).join(', ') || 'Ranchi, Jharkhand'
+                                : (issue.location || 'Ranchi, Jharkhand')}
                             </span>
                           </div>
 
@@ -559,21 +582,21 @@ function CitizenHomePage() {
                           <div className="text-[10px] font-bold uppercase tracking-wider text-[#58423d] mb-2">Resolution Progress</div>
                           <div className="grid grid-cols-4 gap-2 text-center text-[11px]">
                             <div className={`p-2 rounded-lg border font-semibold ${
-                              ['submitted', 'under_review', 'in_progress', 'resolved'].includes(issue.status?.toLowerCase())
+                              ['submitted', 'under_review', 'assigned', 'in_progress', 'resolved'].includes(issue.status?.toLowerCase())
                                 ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                                 : 'bg-[#f8f9fb] border-[#e0e3e5] text-[#58423d]'
                             }`}>
                               1. Submitted
                             </div>
                             <div className={`p-2 rounded-lg border font-semibold ${
-                              ['under_review', 'in_progress', 'resolved'].includes(issue.status?.toLowerCase())
+                              ['under_review', 'assigned', 'in_progress', 'resolved'].includes(issue.status?.toLowerCase())
                                 ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                                 : 'bg-[#f8f9fb] border-[#e0e3e5] text-[#58423d]'
                             }`}>
                               2. Govt Triage
                             </div>
                             <div className={`p-2 rounded-lg border font-semibold ${
-                              ['in_progress', 'resolved'].includes(issue.status?.toLowerCase())
+                              ['assigned', 'in_progress', 'resolved'].includes(issue.status?.toLowerCase())
                                 ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                                 : 'bg-[#f8f9fb] border-[#e0e3e5] text-[#58423d]'
                             }`}>
@@ -727,6 +750,8 @@ function CitizenHomePage() {
                                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                     : issue.status === 'In Progress' || issue.status === 'in_progress'
                                     ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : issue.status === 'assigned' || issue.status === 'Assigned'
+                                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
                                     : 'bg-orange-50 text-orange-700 border border-orange-200'
                                 }`}
                               >
@@ -922,76 +947,73 @@ function CitizenHomePage() {
                 />
               </div>
 
-              {/* --- AI CLASSIFY BUTTON --- */}
-              <div>
-                <button
-                  type="button"
-                  onClick={handleClassify}
-                  disabled={classifying || (!newIssue.title && !newIssue.description)}
-                  className="w-full h-[48px] flex items-center justify-center gap-2 rounded-xl border-2 border-[#f36f56] text-[#f36f56] font-bold text-xs hover:bg-[#fff4f2] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {classifying ? (
-                    <>
-                      <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
-                      Classifying...
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-base">smart_toy</span>
-                      Auto-Detect Category with AI
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* --- AI RESULT BADGE --- */}
-              {aiCategory && !classifying && (
-                <div className="bg-gradient-to-r from-[#fff4f2] to-[#ffecea] border border-[#f36f56]/30 rounded-xl p-4 flex items-start gap-3">
-                  <div className="w-9 h-9 shrink-0 bg-[#f36f56]/10 rounded-full flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[#f36f56] text-lg">verified</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[11px] text-[#58423d] font-semibold uppercase tracking-wide mb-0.5">AI Detected</p>
-                    <p className="text-sm font-bold text-[#191c1e] capitalize">
-                      {CATEGORY_OPTIONS.find(c => c.value === (manualCategory || aiCategory.category))?.label || aiCategory.rawLabel}
-                    </p>
-                    <p className="text-[10px] text-[#9e8984] mt-0.5">Raw: "{aiCategory.rawLabel}"</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowManualSelect(s => !s)}
-                    className="text-[11px] font-bold text-[#f36f56] underline underline-offset-2 cursor-pointer shrink-0 mt-0.5"
-                  >
-                    {showManualSelect ? 'Hide' : 'Change'}
-                  </button>
-                </div>
-              )}
-
-              {/* --- MANUAL CATEGORY SELECT --- */}
-              {(showManualSelect || !aiCategory) && (
-                <div>
-                  <label className="block text-xs font-bold text-[#191c1e] mb-1">
-                    {aiCategory ? 'Override Category' : 'Category'}
+              {/* --- AI CATEGORY DETECTION & SELECTOR --- */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[#191c1e]">
+                    Category {aiCategory ? '(AI Auto-Selected)' : '*'}
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  {classifying && (
+                    <span className="flex items-center gap-1.5 text-[11px] text-[#f36f56] font-semibold">
+                      <span className="material-symbols-outlined text-sm animate-spin">smart_toy</span>
+                      AI Detecting...
+                    </span>
+                  )}
+                </div>
+
+                {/* AI Detected Badge */}
+                {aiCategory && !classifying && (
+                  <div className="bg-gradient-to-r from-[#fff4f2] to-[#ffecea] border border-[#f36f56]/30 rounded-xl p-3.5 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 bg-[#f36f56]/10 rounded-full flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-[#f36f56] text-base">smart_toy</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#58423d] font-semibold uppercase tracking-wider block">AI Detected Domain</span>
+                        <span className="text-xs font-extrabold text-[#191c1e] capitalize">
+                          {CATEGORY_OPTIONS.find(c => c.value === (manualCategory || aiCategory.category))?.label || aiCategory.category}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualSelect(s => !s)}
+                      className="text-[11px] bg-white px-3 py-1.5 rounded-lg text-[#f36f56] font-bold border border-[#f36f56]/30 hover:bg-[#fff4f2] transition-colors cursor-pointer shrink-0"
+                    >
+                      {showManualSelect ? 'Hide Options' : 'Not satisfied? Change'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Category Options Grid (Shown when no AI category or when user clicks "Not satisfied? Change") */}
+                {(!aiCategory || showManualSelect) && (
+                  <div className="grid grid-cols-2 gap-2 pt-1">
                     {CATEGORY_OPTIONS.map(opt => {
-                      const active = (manualCategory || aiCategory?.category || '') === opt.value;
+                      const active = (manualCategory || aiCategory?.category || 'other') === opt.value;
                       return (
                         <button
                           key={opt.value}
                           type="button"
-                          onClick={() => setManualCategory(opt.value)}
-                          className={`h-[40px] px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left ${
-                            active ? 'border-[#f36f56] bg-[#fff4f2] text-[#a83824]' : 'border-[#e0e3e5] text-[#58423d] hover:border-[#f36f56]'
+                          onClick={() => {
+                            setManualCategory(opt.value);
+                            setUserOverridden(true);
+                          }}
+                          className={`h-[42px] px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left flex items-center justify-between ${
+                            active
+                              ? 'border-[#f36f56] bg-[#fff4f2] text-[#a83824] ring-2 ring-[#f36f56]/20 font-bold'
+                              : 'border-[#e0e3e5] text-[#58423d] hover:border-[#f36f56] hover:bg-slate-50'
                           }`}
                         >
-                          {opt.label}
+                          <span>{opt.label}</span>
+                          {active && (
+                            <span className="material-symbols-outlined text-sm text-[#f36f56]">check_circle</span>
+                          )}
                         </button>
                       );
                     })}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* --- DISTRICT --- */}
               <div>
