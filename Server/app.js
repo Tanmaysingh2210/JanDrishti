@@ -102,7 +102,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/industry/auth", industryAuthRoutes);
 app.use("/api/industry/proposals", industryProposalRoutes);
 
-app.get("/", (req, res) => {
+app.get("/health", (req, res) => {
   res.json({
     success: true,
     message: "JanDrishti API is running",
