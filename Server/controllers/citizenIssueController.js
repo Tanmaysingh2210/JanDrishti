@@ -1,5 +1,31 @@
 import Issue from "../models/issue.js";
 import cloudinary from "../config/cloudinary.js";
+import { spawn } from "child_process";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Map model output labels -> DB category enum
+const LABEL_MAP = {
+  "road infrastructure": "roads_traffic",
+  "roads": "roads_traffic",
+  "traffic": "roads_traffic",
+  "waste management": "sanitation",
+  "sanitation": "sanitation",
+  "water": "water_management",
+  "water management": "water_management",
+  "electric / solar energy": "electricity",
+  "energy": "electricity",
+  "electricity": "electricity",
+  "digital infrastructure": "infrastructure",
+  "infrastructure": "infrastructure",
+  "education": "education",
+  "health": "health",
+  "environment": "environment",
+  "social": "social",
+};
 
 // ==========================================
 // UPLOAD EVIDENCE TO CLOUDINARY
@@ -74,6 +100,67 @@ export const uploadEvidence = async (req, res) => {
   }
 };
 
+
+// ==========================================
+// CLASSIFY ISSUE VIA AI MODEL
+// ==========================================
+
+export const classifyIssue = async (req, res) => {
+  try {
+    const { title, description } = req.body;
+
+    if (!title && !description) {
+      return res.status(400).json({
+        success: false,
+        message: "Title or description required for classification",
+      });
+    }
+
+    const text = `${title || ""} ${description || ""}`.trim();
+
+    const predictScript = path.resolve(
+      __dirname,
+      "../../Text_Model/src/predict.py"
+    );
+
+    const result = await new Promise((resolve, reject) => {
+      const py = spawn("python", [predictScript, text]);
+
+      let stdout = "";
+      let stderr = "";
+
+      py.stdout.on("data", (d) => (stdout += d.toString()));
+      py.stderr.on("data", (d) => (stderr += d.toString()));
+
+      py.on("close", (code) => {
+        if (code !== 0) {
+          reject(new Error(stderr || "predict.py exited with code " + code));
+        } else {
+          resolve(stdout.trim());
+        }
+      });
+    });
+
+    // Output format: "Category: label"
+    const match = result.match(/Category:\s*(.+)/i);
+    const rawLabel = match ? match[1].trim().toLowerCase() : "other";
+    const dbCategory = LABEL_MAP[rawLabel] || "other";
+
+    return res.status(200).json({
+      success: true,
+      rawLabel,
+      category: dbCategory,
+    });
+
+  } catch (error) {
+    console.error("Classify Issue Error:", error.message);
+    return res.status(200).json({
+      success: true,
+      rawLabel: "other",
+      category: "other",
+    });
+  }
+};
 
 export const submitIssue = async (req, res) => {
   try {

@@ -136,7 +136,7 @@ function UniversityDashboardPage() {
   const fetchProposals = async () => {
     setLoadingProposals(true);
     try {
-      const res = await fetch('http://localhost:3000/api/university/proposals/all', {
+      const res = await fetch('http://localhost:3000/api/university/proposals/my', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -204,7 +204,7 @@ function UniversityDashboardPage() {
         },
       };
 
-      const res = await fetch('http://localhost:3000/api/university/proposals/submit', {
+      const res = await fetch('http://localhost:3000/api/university/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -236,10 +236,10 @@ function UniversityDashboardPage() {
   // Find existing proposal for current selected challenge
   const existingProposal = selectedChallenge
     ? submittedProposals.find(
-        (p) =>
-          (p.issueId?._id || p.issueId) === (selectedChallenge._id || selectedChallenge.id) ||
-          p.challengeId === (selectedChallenge._id || selectedChallenge.id)
-      )
+      (p) =>
+        (p.issueId?._id || p.issueId) === (selectedChallenge._id || selectedChallenge.id) ||
+        p.challengeId === (selectedChallenge._id || selectedChallenge.id)
+    )
     : null;
 
   // Filter Challenges dynamically
@@ -409,11 +409,10 @@ function UniversityDashboardPage() {
                 <button
                   key={item.id}
                   onClick={() => setActiveView(item.id)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                    isActive
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${isActive
                       ? 'bg-[#2F36ED]/10 text-[#2F36ED] border border-[#2F36ED]/20 font-bold'
                       : 'text-[#58423d] hover:bg-[#f2f4f6] hover:text-[#2F36ED]'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <span
@@ -615,11 +614,10 @@ function UniversityDashboardPage() {
                     <button
                       key={cat}
                       onClick={() => setCategoryFilter(cat)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        categoryFilter === cat
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${categoryFilter === cat
                           ? 'bg-[#2F36ED] text-white'
                           : 'bg-[#f8f9fb] border border-[#e0e3e5] text-[#58423d] hover:text-[#191c1e]'
-                      }`}
+                        }`}
                     >
                       {cat}
                     </button>
@@ -705,13 +703,12 @@ function UniversityDashboardPage() {
 
                 <div className="flex items-center gap-3">
                   <span
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold ${
-                      existingProposal || selectedChallenge.status === 'resolved'
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold ${existingProposal || selectedChallenge.status === 'resolved'
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
                         : selectedChallenge.status === 'in_progress'
-                        ? 'bg-blue-50 text-blue-700 border border-blue-300'
-                        : 'bg-amber-50 text-amber-800 border border-amber-300'
-                    }`}
+                          ? 'bg-blue-50 text-blue-700 border border-blue-300'
+                          : 'bg-amber-50 text-amber-800 border border-amber-300'
+                      }`}
                   >
                     Status: {existingProposal ? 'Proposal Submitted' : selectedChallenge.status || 'under_review'}
                   </span>
@@ -742,16 +739,14 @@ function UniversityDashboardPage() {
 
                   {/* Step 3 */}
                   <div
-                    className={`flex flex-col items-center text-center p-3 rounded-xl border ${
-                      existingProposal
+                    className={`flex flex-col items-center text-center p-3 rounded-xl border ${existingProposal
                         ? 'bg-emerald-50 border-emerald-200'
                         : 'bg-blue-50 border-blue-200 animate-pulse'
-                    }`}
+                      }`}
                   >
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 ${
-                        existingProposal ? 'bg-emerald-600 text-white' : 'bg-[#2F36ED] text-white'
-                      }`}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 ${existingProposal ? 'bg-emerald-600 text-white' : 'bg-[#2F36ED] text-white'
+                        }`}
                     >
                       {existingProposal ? '✓' : '3'}
                     </div>

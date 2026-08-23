@@ -36,6 +36,11 @@ function GovtDashboardPage() {
   const [assignUnivId, setAssignUnivId] = useState('');
   const [assignIndId, setAssignIndId] = useState('');
 
+  // University Proposals for selected challenge
+  const [issueProposals, setIssueProposals] = useState([]);
+  const [loadingProposals, setLoadingProposals] = useState(false);
+  const [acceptingProposalId, setAcceptingProposalId] = useState(null);
+
   useEffect(() => {
     fetchUniversities();
     fetchChallenges();
@@ -245,6 +250,60 @@ function GovtDashboardPage() {
   const openChallengeDetail = (challenge) => {
     setSelectedChallenge(challenge);
     setActiveView('challenge_detail');
+    fetchProposalsForIssue(challenge._id || challenge.id);
+  };
+
+  const fetchProposalsForIssue = async (issueId) => {
+    if (!issueId) return;
+    setLoadingProposals(true);
+    setIssueProposals([]);
+    try {
+      const res = await fetch(`http://localhost:3000/api/government/proposals/issue/${issueId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.proposals)) {
+        setIssueProposals(data.proposals);
+      } else {
+        setIssueProposals([]);
+      }
+    } catch (err) {
+      console.error('Error fetching proposals:', err);
+      setIssueProposals([]);
+    } finally {
+      setLoadingProposals(false);
+    }
+  };
+
+  const handleAcceptProposal = async (proposalId, proposalTitle) => {
+    setAcceptingProposalId(proposalId);
+    try {
+      const res = await fetch(`http://localhost:3000/api/government/proposals/${proposalId}/select`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ selectionNotes: 'Accepted by government' }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setToastMessage(`Proposal "${proposalTitle}" accepted! Issue assigned to university.`);
+        // Refresh proposals and challenges
+        fetchProposalsForIssue(selectedChallenge._id || selectedChallenge.id);
+        fetchChallenges();
+      } else {
+        setToastMessage(data.message || 'Failed to accept proposal.');
+      }
+      setShowNotificationToast(true);
+      setTimeout(() => setShowNotificationToast(false), 4000);
+    } catch (err) {
+      setToastMessage('Error accepting proposal.');
+      setShowNotificationToast(true);
+      setTimeout(() => setShowNotificationToast(false), 4000);
+    } finally {
+      setAcceptingProposalId(null);
+    }
   };
 
   const handleLogout = () => {
@@ -869,6 +928,104 @@ function GovtDashboardPage() {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* UNIVERSITY PROPOSALS FULL-WIDTH SECTION */}
+                <div className="lg:col-span-3 bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#2F36ED]">assignment_turned_in</span>
+                      University Proposals
+                      {issueProposals.length > 0 && (
+                        <span className="ml-1 px-2 py-0.5 bg-[#2F36ED]/10 text-[#2F36ED] rounded-full text-[11px] font-bold">{issueProposals.length}</span>
+                      )}
+                    </h3>
+                    <button
+                      onClick={() => fetchProposalsForIssue(selectedChallenge._id || selectedChallenge.id)}
+                      className="text-xs text-[#F36F56] font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">refresh</span>
+                      Refresh
+                    </button>
+                  </div>
+
+                  {loadingProposals ? (
+                    <div className="flex items-center gap-2 text-xs text-[#58423d] py-4">
+                      <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                      Loading proposals...
+                    </div>
+                  ) : issueProposals.length === 0 ? (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm">inbox</span>
+                      No proposals submitted for this issue yet. Universities will appear here after submitting.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {issueProposals.map((proposal) => (
+                        <div
+                          key={proposal._id}
+                          className={`p-5 rounded-xl border ${
+                            proposal.status === 'accepted' ? 'border-emerald-300 bg-emerald-50/30' :
+                            proposal.status === 'rejected' ? 'border-red-200 bg-red-50/20' :
+                            'border-[#e0e3e5] bg-white'
+                          } space-y-3`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <h4 className="text-sm font-bold text-[#191c1e] leading-tight">{proposal.title}</h4>
+                              <p className="text-[11px] text-[#58423d] mt-0.5">
+                                <strong>{proposal.universityId?.name || 'University'}</strong>
+                                {proposal.submittedBy?.fullName && ` · ${proposal.submittedBy.fullName}`}
+                              </p>
+                            </div>
+                            <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
+                              proposal.status === 'accepted' ? 'bg-emerald-100 text-emerald-800' :
+                              proposal.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                              {proposal.status}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-[#58423d] bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] leading-relaxed line-clamp-2">
+                            {proposal.solutionDescription}
+                          </p>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-[#f8f9fb] p-2.5 rounded-xl border border-[#e0e3e5] text-xs">
+                              <span className="text-[#58423d] block text-[10px]">Cost</span>
+                              <span className="font-extrabold text-[#2F36ED]">₹{proposal.estimatedCost?.toLocaleString('en-IN') || '—'}</span>
+                            </div>
+                            <div className="bg-[#f8f9fb] p-2.5 rounded-xl border border-[#e0e3e5] text-xs">
+                              <span className="text-[#58423d] block text-[10px]">Timeline</span>
+                              <span className="font-extrabold text-[#191c1e]">{proposal.timelineMonths || '—'} mo</span>
+                            </div>
+                          </div>
+
+                          {proposal.status === 'submitted' && (
+                            <button
+                              onClick={() => handleAcceptProposal(proposal._id, proposal.title)}
+                              disabled={!!acceptingProposalId}
+                              className="w-full h-[38px] bg-[#F36F56] text-white rounded-xl text-xs font-bold hover:bg-[#a83824] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                            >
+                              {acceptingProposalId === proposal._id ? (
+                                <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Accepting...</>
+                              ) : (
+                                <><span className="material-symbols-outlined text-sm">check_circle</span> Accept Proposal</>
+                              )}
+                            </button>
+                          )}
+
+                          {proposal.status === 'accepted' && (
+                            <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold">
+                              <span className="material-symbols-outlined text-sm">verified</span>
+                              Accepted — {proposal.universityId?.name}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* RIGHT SIDEBAR (1/3 Width): Teams & Sponsors */}

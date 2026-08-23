@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useCloudinaryUpload } from '../hooks/useCloudinaryUpload';
 
 function CitizenHomePage() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
   const [showReportModal, setShowReportModal] = useState(false);
@@ -11,14 +15,42 @@ function CitizenHomePage() {
   const [issues, setIssues] = useState([]);
   const [loadingIssues, setLoadingIssues] = useState(false);
 
-  // New Issue Form State
+  // Report form state
   const [newIssue, setNewIssue] = useState({
     title: '',
-    category: 'Pothole & Roads',
     description: '',
     district: 'Ranchi',
     address: '',
   });
+  const { uploading: uploadingPhoto, photos: uploadedPhotos, uploadFile, removePhoto, reset: resetPhotos, error: uploadError } = useCloudinaryUpload();
+  const [classifying, setClassifying] = useState(false);
+  const [aiCategory, setAiCategory] = useState(null);  // { rawLabel, category }
+  const [manualCategory, setManualCategory] = useState('');
+  const [showManualSelect, setShowManualSelect] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const CATEGORY_OPTIONS = [
+    { value: 'roads_traffic',    label: '🚧 Roads & Traffic' },
+    { value: 'water_management', label: '💧 Water Management' },
+    { value: 'sanitation',       label: '🗑️ Sanitation & Waste' },
+    { value: 'electricity',      label: '⚡ Electricity' },
+    { value: 'infrastructure',   label: '🏗️ Infrastructure' },
+    { value: 'environment',      label: '🌿 Environment' },
+    { value: 'education',        label: '📚 Education' },
+    { value: 'health',           label: '🏥 Health' },
+    { value: 'social',           label: '👥 Social' },
+    { value: 'other',            label: '📋 Other' },
+  ];
+
+  const resetModal = () => {
+    setNewIssue({ title: '', description: '', district: 'Ranchi', address: '' });
+    resetPhotos();
+    setAiCategory(null);
+    setManualCategory('');
+    setShowManualSelect(false);
+    setShowReportModal(false);
+  };
+
 
   useEffect(() => {
     // Check logged in user session
@@ -89,28 +121,65 @@ function CitizenHomePage() {
     },
   ];
 
+  // Upload photo directly to Cloudinary via hook
+  const handlePhotoFile = (file) => {
+    if (file) uploadFile(file);
+  };
+
+  // Call backend → predict.py
+  const handleClassify = async () => {
+    const text = `${newIssue.title} ${newIssue.description}`.trim();
+    if (!text) return;
+    setClassifying(true);
+    setAiCategory(null);
+    setManualCategory('');
+    setShowManualSelect(false);
+    try {
+      const res = await fetch('http://localhost:3000/api/citizen/issues/classify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ title: newIssue.title, description: newIssue.description }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiCategory({ rawLabel: data.rawLabel, category: data.category });
+      }
+    } catch (err) {
+      console.error('Classify error:', err);
+    } finally {
+      setClassifying(false);
+    }
+  };
+
   const handleReportSubmit = async (e) => {
     e.preventDefault();
     if (!newIssue.title || !newIssue.description) return;
-
+    const finalCategory = manualCategory || aiCategory?.category || 'other';
+    setSubmitting(true);
     try {
       const res = await fetch('http://localhost:3000/api/citizen/issues', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(newIssue),
+        body: JSON.stringify({
+          title: newIssue.title,
+          description: newIssue.description,
+          category: finalCategory,
+          photos: uploadedPhotos.map(p => ({ url: p.url, publicId: p.publicId })),
+          location: { district: newIssue.district, address: newIssue.address, state: 'Jharkhand' },
+        }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setShowReportModal(false);
+        resetModal();
         fetchCitizenIssues();
       } else {
-        // Fallback mock addition
         setIssues([
           {
             id: `ISS-${Math.floor(100 + Math.random() * 900)}`,
             title: newIssue.title,
-            category: newIssue.category,
+            category: finalCategory,
             status: 'Under Review',
             date: 'Today',
             location: `${newIssue.district}, Jharkhand`,
@@ -118,10 +187,12 @@ function CitizenHomePage() {
           },
           ...issues,
         ]);
-        setShowReportModal(false);
+        resetModal();
       }
     } catch (err) {
-      setShowReportModal(false);
+      resetModal();
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -450,67 +521,206 @@ function CitizenHomePage() {
 
       {/* REPORT ISSUE MODAL */}
       {showReportModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 md:p-8 max-w-lg w-full shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-[#e0e3e5] pb-3">
-              <h3 className="text-lg font-bold text-[#191c1e]">Report Civic Issue</h3>
-              <button onClick={() => setShowReportModal(false)} className="text-[#58423d] hover:text-[#191c1e]">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" style={{backdropFilter:'blur(4px)'}}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 pt-5 pb-4 border-b border-[#e0e3e5]">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#f36f56] text-xl">add_circle</span>
+                <h3 className="text-lg font-bold text-[#191c1e]">Report Civic Issue</h3>
+              </div>
+              <button onClick={resetModal} className="text-[#58423d] hover:text-[#191c1e] transition-colors cursor-pointer">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleReportSubmit} className="space-y-4">
+            <form onSubmit={handleReportSubmit} className="p-6 space-y-5">
+
+              {/* --- PHOTO UPLOAD --- */}
               <div>
-                <label className="block text-xs font-semibold text-[#191c1e] mb-1">Issue Title *</label>
+                <label className="block text-xs font-bold text-[#191c1e] mb-2">📷 Upload Evidence (optional)</label>
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="flex-1 h-[44px] flex items-center justify-center gap-2 border-2 border-dashed border-[#e0e3e5] rounded-xl text-xs font-semibold text-[#58423d] hover:border-[#f36f56] hover:text-[#f36f56] transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-base">upload</span>
+                    Upload Photo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="flex-1 h-[44px] flex items-center justify-center gap-2 border-2 border-dashed border-[#e0e3e5] rounded-xl text-xs font-semibold text-[#58423d] hover:border-[#f36f56] hover:text-[#f36f56] transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-base">photo_camera</span>
+                    Open Camera
+                  </button>
+                </div>
+                {/* Hidden inputs */}
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+                  onChange={e => { if (e.target.files?.[0]) handlePhotoFile(e.target.files[0]); e.target.value = ''; }}
+                />
+                <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+                  onChange={e => { if (e.target.files?.[0]) handlePhotoFile(e.target.files[0]); e.target.value = ''; }}
+                />
+                {/* Photo previews */}
+                {uploadingPhoto && (
+                  <div className="flex items-center gap-2 text-xs text-[#58423d] py-2">
+                    <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                    Uploading to Cloudinary...
+                  </div>
+                )}
+                {uploadError && (
+                  <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-1">
+                    <span className="material-symbols-outlined text-sm">error</span>
+                    {uploadError}
+                  </div>
+                )}
+                {uploadedPhotos.length > 0 && (
+                  <div className="flex gap-2 flex-wrap mt-2">
+                    {uploadedPhotos.map((p, i) => (
+                      <div key={i} className="relative group">
+                        <img src={p.preview || p.url} alt="evidence" className="w-20 h-20 object-cover rounded-xl border border-[#e0e3e5]" />
+                        <button
+                          type="button"
+                          onClick={() => removePhoto(i)}
+                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#f36f56] text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* --- TITLE --- */}
+              <div>
+                <label className="block text-xs font-bold text-[#191c1e] mb-1">Issue Title *</label>
                 <input
-                  type="text"
-                  required
+                  type="text" required
                   value={newIssue.title}
-                  onChange={(e) => setNewIssue({ ...newIssue, title: e.target.value })}
+                  onChange={e => setNewIssue({ ...newIssue, title: e.target.value })}
                   placeholder="e.g. Broken Streetlight on Main St"
-                  className="w-full h-[48px] px-4 border border-[#e0e3e5] rounded-xl text-sm outline-none"
+                  className="w-full h-[48px] px-4 border border-[#e0e3e5] rounded-xl text-sm outline-none focus:border-[#f36f56] transition-colors"
                 />
               </div>
 
+              {/* --- DESCRIPTION --- */}
               <div>
-                <label className="block text-xs font-semibold text-[#191c1e] mb-1">Category</label>
-                <select
-                  value={newIssue.category}
-                  onChange={(e) => setNewIssue({ ...newIssue, category: e.target.value })}
-                  className="w-full h-[48px] px-4 border border-[#e0e3e5] rounded-xl text-sm outline-none bg-white"
+                <label className="block text-xs font-bold text-[#191c1e] mb-1">Description *</label>
+                <textarea
+                  required rows={3}
+                  value={newIssue.description}
+                  onChange={e => setNewIssue({ ...newIssue, description: e.target.value })}
+                  placeholder="Describe the problem in detail — location, severity, since when..."
+                  className="w-full p-3 border border-[#e0e3e5] rounded-xl text-sm outline-none resize-none focus:border-[#f36f56] transition-colors"
+                />
+              </div>
+
+              {/* --- AI CLASSIFY BUTTON --- */}
+              <div>
+                <button
+                  type="button"
+                  onClick={handleClassify}
+                  disabled={classifying || (!newIssue.title && !newIssue.description)}
+                  className="w-full h-[48px] flex items-center justify-center gap-2 rounded-xl border-2 border-[#f36f56] text-[#f36f56] font-bold text-xs hover:bg-[#fff4f2] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <option value="Roads & Infrastructure">Roads & Infrastructure</option>
-                  <option value="Electrical & Lighting">Electrical & Lighting</option>
-                  <option value="Water & Sanitation">Water & Sanitation</option>
-                  <option value="Waste Management">Waste Management</option>
+                  {classifying ? (
+                    <>
+                      <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                      Classifying...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-base">smart_toy</span>
+                      Auto-Detect Category with AI
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* --- AI RESULT BADGE --- */}
+              {aiCategory && !classifying && (
+                <div className="bg-gradient-to-r from-[#fff4f2] to-[#ffecea] border border-[#f36f56]/30 rounded-xl p-4 flex items-start gap-3">
+                  <div className="w-9 h-9 shrink-0 bg-[#f36f56]/10 rounded-full flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[#f36f56] text-lg">verified</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[11px] text-[#58423d] font-semibold uppercase tracking-wide mb-0.5">AI Detected</p>
+                    <p className="text-sm font-bold text-[#191c1e] capitalize">
+                      {CATEGORY_OPTIONS.find(c => c.value === (manualCategory || aiCategory.category))?.label || aiCategory.rawLabel}
+                    </p>
+                    <p className="text-[10px] text-[#9e8984] mt-0.5">Raw: "{aiCategory.rawLabel}"</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowManualSelect(s => !s)}
+                    className="text-[11px] font-bold text-[#f36f56] underline underline-offset-2 cursor-pointer shrink-0 mt-0.5"
+                  >
+                    {showManualSelect ? 'Hide' : 'Change'}
+                  </button>
+                </div>
+              )}
+
+              {/* --- MANUAL CATEGORY SELECT --- */}
+              {(showManualSelect || !aiCategory) && (
+                <div>
+                  <label className="block text-xs font-bold text-[#191c1e] mb-1">
+                    {aiCategory ? 'Override Category' : 'Category'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {CATEGORY_OPTIONS.map(opt => {
+                      const active = (manualCategory || aiCategory?.category || '') === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setManualCategory(opt.value)}
+                          className={`h-[40px] px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left ${
+                            active ? 'border-[#f36f56] bg-[#fff4f2] text-[#a83824]' : 'border-[#e0e3e5] text-[#58423d] hover:border-[#f36f56]'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* --- DISTRICT --- */}
+              <div>
+                <label className="block text-xs font-bold text-[#191c1e] mb-1">District</label>
+                <select
+                  value={newIssue.district}
+                  onChange={e => setNewIssue({ ...newIssue, district: e.target.value })}
+                  className="w-full h-[48px] px-4 border border-[#e0e3e5] rounded-xl text-sm outline-none bg-white focus:border-[#f36f56] transition-colors"
+                >
+                  {['Ranchi','Dhanbad','Jamshedpur','Bokaro','Hazaribagh','Giridih','Deoghar','Dumka','Chaibasa','Lohardaga'].map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[#191c1e] mb-1">Description *</label>
-                <textarea
-                  required
-                  rows={3}
-                  value={newIssue.description}
-                  onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })}
-                  placeholder="Provide details about the location and problem..."
-                  className="w-full p-3 border border-[#e0e3e5] rounded-xl text-sm outline-none resize-none"
-                ></textarea>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
+              {/* --- ACTIONS --- */}
+              <div className="flex gap-3 pt-1">
                 <button
                   type="button"
-                  onClick={() => setShowReportModal(false)}
-                  className="px-5 py-2.5 rounded-xl border border-[#e0e3e5] text-xs font-bold text-[#58423d]"
+                  onClick={resetModal}
+                  className="flex-1 h-[48px] rounded-xl border border-[#e0e3e5] text-xs font-bold text-[#58423d] hover:bg-[#f2f4f6] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#f36f56] text-white text-xs font-bold hover:bg-[#a83824] transition-colors"
+                  disabled={submitting || uploadingPhoto}
+                  className="flex-1 h-[48px] rounded-xl bg-[#f36f56] text-white text-xs font-bold hover:bg-[#a83824] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
                 >
-                  Submit Issue
+                  {submitting ? (
+                    <><span className="material-symbols-outlined text-base animate-spin">progress_activity</span> Submitting...</>
+                  ) : 'Submit Issue'}
                 </button>
               </div>
             </form>
