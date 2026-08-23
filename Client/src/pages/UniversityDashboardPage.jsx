@@ -89,7 +89,7 @@ function UniversityDashboardPage() {
 
   const fetchUniversityProfile = async () => {
     try {
-      const res = await fetch('https://jandrishti-em1u.onrender.com/api/university/me', {
+      const res = await fetch('https://jandrishti-em1u.onrender.com/api/university/auth/me', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
