@@ -9,7 +9,7 @@ os.environ.setdefault("HF_HOME", str(ROOT / ".hf_cache"))
 from predict import predict
 from similarity import SimilarityEngine
 
-DUPLICATE_THRESHOLD = 0.80
+DUPLICATE_THRESHOLD = 0.85
 CATEGORY_FIX = {"electric / solar energy": "energy"}
 
 engine = SimilarityEngine()
