@@ -122,6 +122,15 @@ const issueSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    mlAnalysis: {
+      rawCategory: { type: String },
+      category: { type: String },
+      similarityScore: { type: Number },
+      originalComplaintIndex: { type: Number },
+      similarComplaint: { type: String },
+      isDuplicate: { type: Boolean, default: false },
+    },
   },
   {
     timestamps: true,

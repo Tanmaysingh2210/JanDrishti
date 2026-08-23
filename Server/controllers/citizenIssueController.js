@@ -91,6 +91,43 @@ export const uploadEvidence = async (req, res) => {
 
 
 // ==========================================
+// ML SERVICE INTEGRATION HELPER
+// ==========================================
+
+async function analyzeComplaint(text) {
+  let primaryUrl = process.env.ML_SERVICE_URL || "http://192.168.29.147:8000/analyze";
+  if (!primaryUrl.endsWith("/analyze")) {
+    primaryUrl = primaryUrl.replace(/\/+$/, "") + "/analyze";
+  }
+  try {
+    const r = await fetch(primaryUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!r.ok) throw new Error(`ML service ${r.status}`);
+    return await r.json();
+  } catch (primaryErr) {
+    // If primary IP fails, attempt localhost fallback
+    try {
+      const localR = await fetch("http://127.0.0.1:8000/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(3000),
+      });
+      if (localR.ok) return await localR.json();
+    } catch (_) {}
+    throw primaryErr;
+  }
+}
+
+
+// ==========================================
 // CLASSIFY ISSUE VIA AI MODEL
 // ==========================================
 
@@ -107,22 +144,12 @@ export const classifyIssue = async (req, res) => {
 
     const text = `${title || ""} ${description || ""}`.trim();
     let rawLabel = "other";
+    let mlData = null;
 
-    // 1. Try FastAPI ML Service running on http://127.0.0.1:8000/analyze first
-    try {
-      const mlRes = await fetch("http://127.0.0.1:8000/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (mlRes.ok) {
-        const mlData = await mlRes.json();
-        if (mlData && mlData.category) {
-          rawLabel = mlData.category.trim().toLowerCase();
-        }
-      }
-    } catch (apiErr) {
-      // FastAPI port 8000 not reachable, fallback to predict.py script
+    // 1. Try FastAPI ML Service (http://192.168.29.147:8000/analyze with fallback)
+    mlData = await analyzeComplaint(text).catch(() => null);
+    if (mlData && mlData.category) {
+      rawLabel = mlData.category.trim().toLowerCase();
     }
 
     // 2. Fallback to predict.py python process if FastAPI service didn't return a category
@@ -162,36 +189,37 @@ export const classifyIssue = async (req, res) => {
 
     let dbCategory = "other";
     const cleanRaw = (rawLabel || "").trim().toLowerCase();
-    const MODEL_CATEGORIES = [
-      "accessibility",
-      "agriculture",
-      "education",
-      "energy",
-      "environment",
-      "healthcare",
-      "public administration",
-      "rural livelihood",
-      "urban development",
-      "water related",
-      "other",
-    ];
-
-    if (MODEL_CATEGORIES.includes(cleanRaw)) {
-      dbCategory = cleanRaw;
+    if (LABEL_MAP[cleanRaw]) {
+      dbCategory = LABEL_MAP[cleanRaw];
     } else {
-      if (cleanRaw === "electric / solar energy" || cleanRaw === "electricity") dbCategory = "energy";
-      else if (cleanRaw === "roads_traffic" || cleanRaw === "roads" || cleanRaw === "traffic") dbCategory = "urban development";
-      else if (cleanRaw === "water_management" || cleanRaw === "water") dbCategory = "water related";
-      else if (cleanRaw === "sanitation" || cleanRaw === "waste management") dbCategory = "urban development";
-      else if (cleanRaw === "health") dbCategory = "healthcare";
-      else if (cleanRaw === "social") dbCategory = "public administration";
-      else if (cleanRaw === "infrastructure" || cleanRaw === "digital infrastructure") dbCategory = "accessibility";
+      const MODEL_CATEGORIES = [
+        "accessibility",
+        "agriculture",
+        "education",
+        "energy",
+        "environment",
+        "healthcare",
+        "public administration",
+        "rural livelihood",
+        "urban development",
+        "water related",
+        "other",
+      ];
+      if (MODEL_CATEGORIES.includes(cleanRaw)) {
+        dbCategory = cleanRaw;
+      }
     }
 
     return res.status(200).json({
       success: true,
       rawLabel,
       category: dbCategory,
+      ml: mlData ? {
+        originalComplaintIndex: mlData.original_complaint_index ?? null,
+        similarityScore: mlData.similarity_score ?? null,
+        similarComplaint: mlData.similar_complaint ?? null,
+        isDuplicate: Boolean(mlData.similarity_score && mlData.similarity_score >= 0.85),
+      } : null,
     });
 
   } catch (error) {
@@ -206,7 +234,7 @@ export const classifyIssue = async (req, res) => {
 
 export const submitIssue = async (req, res) => {
   try {
-    const { title, description, category, photos, videos, location } = req.body;
+    const { title, description, category: userCategory, photos, videos, location } = req.body;
 
     if (!title || !description) {
       return res.status(400).json({
@@ -215,21 +243,69 @@ export const submitIssue = async (req, res) => {
       });
     }
 
+    // Call ML service from server side with safety catch
+    const textToAnalyze = `${title}. ${description}`;
+    const ml = await analyzeComplaint(textToAnalyze).catch(() => null);
+
+    let rawCategory = ml?.category ? ml.category.trim().toLowerCase() : null;
+    let finalCategory = userCategory || "other";
+
+    if (rawCategory) {
+      if (LABEL_MAP[rawCategory]) {
+        finalCategory = LABEL_MAP[rawCategory];
+      } else {
+        const MODEL_CATEGORIES = [
+          "accessibility",
+          "agriculture",
+          "education",
+          "energy",
+          "environment",
+          "healthcare",
+          "public administration",
+          "rural livelihood",
+          "urban development",
+          "water related",
+          "other",
+        ];
+        if (MODEL_CATEGORIES.includes(rawCategory)) {
+          finalCategory = rawCategory;
+        }
+      }
+    }
+
+    const duplicateOf = ml?.original_complaint_index ?? null;
+    const similarityScore = ml?.similarity_score ?? null;
+    const isDuplicate = Boolean(similarityScore !== null && similarityScore >= 0.85);
+
     const issue = await Issue.create({
       citizenId: req.user.userId,
       title: title.trim(),
       description: description.trim(),
-      category: category || "other",
+      category: finalCategory,
       photos: photos || [],
       videos: videos || [],
       location: location || {},
       status: "submitted",
+      mlAnalysis: ml ? {
+        rawCategory,
+        category: finalCategory,
+        similarityScore,
+        originalComplaintIndex: duplicateOf,
+        similarComplaint: ml.similar_complaint || null,
+        isDuplicate,
+      } : undefined,
     });
 
     return res.status(201).json({
       success: true,
       message: "Issue reported successfully",
       issue,
+      mlAnalysis: ml ? {
+        category: finalCategory,
+        originalComplaintIndex: duplicateOf,
+        similarityScore,
+        isDuplicate,
+      } : null,
     });
   } catch (error) {
     console.error("Submit Issue Error:", error);
@@ -239,6 +315,7 @@ export const submitIssue = async (req, res) => {
     });
   }
 };
+
 
 export const getMyIssues = async (req, res) => {
   try {
