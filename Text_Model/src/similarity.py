@@ -26,7 +26,7 @@ class SimilarityEngine:
             raise FileNotFoundError(f"Index not found at {INDEX_FILE}. Run build_embedding.py first.")
         self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
         self.model = AutoModel.from_pretrained(MODEL_NAME).to(DEVICE).eval()
-        data = np.load(INDEX_FILE)
+        data = np.load(INDEX_FILE, allow_pickle=True)
         self.embeddings = data["embeddings"]
         self.ids = data["ids"]
         self.texts = data["texts"]
