@@ -881,26 +881,50 @@ function GovtDashboardPage() {
                       Media Gallery (Field Inspections &amp; Photos)
                     </h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
-                        <div className="w-full h-40 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2 relative overflow-hidden">
-                          <span className="material-symbols-outlined text-4xl text-[#F36F56] mb-1">image</span>
-                          <span className="text-xs font-bold">Field Site Inspection Image</span>
-                        </div>
-                        <span className="text-xs font-semibold text-[#191c1e]">Geotagged Photo #1</span>
-                        <p className="text-[11px] text-[#58423d]">Captured by Citizen Mobile App</p>
+                    {((selectedChallenge.photos?.length || 0) + (selectedChallenge.videos?.length || 0)) === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-[#58423d] bg-[#f8f9fb] rounded-xl border border-[#e0e3e5]">
+                        <span className="material-symbols-outlined text-4xl text-[#e0e3e5] mb-2">image_not_supported</span>
+                        <p className="text-xs font-semibold">No media uploaded by citizen</p>
                       </div>
-
-                      <div className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
-                        <div className="w-full h-40 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2 relative overflow-hidden">
-                          <span className="material-symbols-outlined text-4xl text-[#262ce7] mb-1">videocam</span>
-                          <span className="text-xs font-bold">Site Audit Video Recording</span>
-                        </div>
-                        <span className="text-xs font-semibold text-[#191c1e]">Location Video Log</span>
-                        <p className="text-[11px] text-[#58423d]">1080p Inspection Clip</p>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {(selectedChallenge.photos || []).map((photo, idx) => (
+                          <div key={photo._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                            <a href={photo.url} target="_blank" rel="noopener noreferrer" className="block">
+                              <img
+                                src={photo.url}
+                                alt={`Citizen Photo ${idx + 1}`}
+                                className="w-full h-40 object-cover rounded-lg mb-2 hover:opacity-90 transition-opacity"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div style={{ display: 'none' }} className="w-full h-40 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2">
+                                <span className="material-symbols-outlined text-4xl text-[#F36F56] mb-1">broken_image</span>
+                                <span className="text-xs font-bold">Image failed to load</span>
+                              </div>
+                            </a>
+                            <span className="text-xs font-semibold text-[#191c1e]">Geotagged Photo #{idx + 1}</span>
+                            <p className="text-[11px] text-[#58423d]">Captured by Citizen</p>
+                          </div>
+                        ))}
+                        {(selectedChallenge.videos || []).map((video, idx) => (
+                          <div key={video._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                            <a href={video.url} target="_blank" rel="noopener noreferrer" className="block">
+                              <div className="w-full h-40 bg-slate-800 rounded-lg flex flex-col items-center justify-center mb-2 hover:opacity-90 transition-opacity">
+                                <span className="material-symbols-outlined text-4xl text-white mb-1">play_circle</span>
+                                <span className="text-xs font-bold text-white">Click to Play Video</span>
+                              </div>
+                            </a>
+                            <span className="text-xs font-semibold text-[#191c1e]">Location Video Log #{idx + 1}</span>
+                            <p className="text-[11px] text-[#58423d]">Submitted by Citizen</p>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                    )}
                   </div>
+
 
                   {/* LOCATION & GEOTAG */}
                   <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
@@ -970,6 +994,7 @@ function GovtDashboardPage() {
                             'border-[#e0e3e5] bg-white'
                           } space-y-3`}
                         >
+                          {/* Header: Title + Status */}
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1">
                               <h4 className="text-sm font-bold text-[#191c1e] leading-tight">{proposal.title}</h4>
@@ -977,6 +1002,11 @@ function GovtDashboardPage() {
                                 <strong>{proposal.universityId?.name || 'University'}</strong>
                                 {proposal.submittedBy?.fullName && ` · ${proposal.submittedBy.fullName}`}
                               </p>
+                              {proposal.createdAt && (
+                                <p className="text-[10px] text-[#58423d] mt-0.5">
+                                  Submitted: {new Date(proposal.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </p>
+                              )}
                             </div>
                             <span className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
                               proposal.status === 'accepted' ? 'bg-emerald-100 text-emerald-800' :
@@ -987,21 +1017,78 @@ function GovtDashboardPage() {
                             </span>
                           </div>
 
-                          <p className="text-xs text-[#58423d] bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] leading-relaxed line-clamp-2">
+                          {/* Solution Description */}
+                          <p className="text-xs text-[#58423d] bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] leading-relaxed">
                             {proposal.solutionDescription}
                           </p>
 
+                          {/* Cost + Timeline */}
                           <div className="grid grid-cols-2 gap-2">
                             <div className="bg-[#f8f9fb] p-2.5 rounded-xl border border-[#e0e3e5] text-xs">
-                              <span className="text-[#58423d] block text-[10px]">Cost</span>
+                              <span className="text-[#58423d] block text-[10px]">Estimated Cost</span>
                               <span className="font-extrabold text-[#2F36ED]">₹{proposal.estimatedCost?.toLocaleString('en-IN') || '—'}</span>
                             </div>
                             <div className="bg-[#f8f9fb] p-2.5 rounded-xl border border-[#e0e3e5] text-xs">
                               <span className="text-[#58423d] block text-[10px]">Timeline</span>
-                              <span className="font-extrabold text-[#191c1e]">{proposal.timelineMonths || '—'} mo</span>
+                              <span className="font-extrabold text-[#191c1e]">{proposal.timelineMonths || '—'} month{proposal.timelineMonths !== 1 ? 's' : ''}</span>
                             </div>
                           </div>
 
+                          {/* Faculty Information */}
+                          {proposal.facultyInformation?.length > 0 && (
+                            <div className="bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] space-y-1">
+                              <p className="text-[10px] font-bold text-[#58423d] uppercase tracking-wider mb-2 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-sm text-[#2F36ED]">person_book</span>
+                                Faculty Information
+                              </p>
+                              {proposal.facultyInformation.map((f, i) => (
+                                <div key={i} className="text-xs text-[#191c1e]">
+                                  <span className="font-bold">{f.name}</span>
+                                  {f.designation && <span className="text-[#58423d]"> · {f.designation}</span>}
+                                  {f.department && <span className="text-[#58423d]"> · {f.department}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Team Information */}
+                          {proposal.teamInformation?.length > 0 && (
+                            <div className="bg-[#f8f9fb] p-3 rounded-xl border border-[#e0e3e5] space-y-1">
+                              <p className="text-[10px] font-bold text-[#58423d] uppercase tracking-wider mb-2 flex items-center gap-1">
+                                <span className="material-symbols-outlined text-sm text-[#2F36ED]">groups</span>
+                                Team Members
+                              </p>
+                              {proposal.teamInformation.map((m, i) => (
+                                <div key={i} className="text-xs">
+                                  <span className="font-bold text-[#191c1e]">{m.name}</span>
+                                  {m.role && <span className="text-[#58423d]"> · {m.role}</span>}
+                                  {m.designation && <span className="text-[#58423d]"> · {m.designation}</span>}
+                                  {m.email && <p className="text-[#2F36ED] text-[10px]">{m.email}</p>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* PDF Proposal Link */}
+                          {proposal.proposalPdf?.url && (
+                            <a
+                              href={proposal.proposalPdf.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-[#2F36ED]/30 bg-[#2F36ED]/5 hover:bg-[#2F36ED]/10 transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-base text-[#2F36ED]">picture_as_pdf</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-[#2F36ED] truncate">
+                                  {proposal.proposalPdf.originalName || 'R&D Proposal Document'}
+                                </p>
+                                <p className="text-[10px] text-[#58423d]">Click to view PDF</p>
+                              </div>
+                              <span className="material-symbols-outlined text-sm text-[#2F36ED]">open_in_new</span>
+                            </a>
+                          )}
+
+                          {/* Accept / Accepted state */}
                           {proposal.status === 'submitted' && (
                             <button
                               onClick={() => handleAcceptProposal(proposal._id, proposal.title)}

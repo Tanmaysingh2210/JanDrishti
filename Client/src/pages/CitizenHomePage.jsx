@@ -72,7 +72,7 @@ function CitizenHomePage() {
   const fetchCitizenIssues = async () => {
     setLoadingIssues(true);
     try {
-      const res = await fetch('http://localhost:3000/api/citizen/issues', {
+      const res = await fetch('http://localhost:3000/api/citizen/issues/my', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -81,11 +81,11 @@ function CitizenHomePage() {
       if (res.ok && data.success && data.issues) {
         setIssues(data.issues);
       } else {
-        // Mock fallback issues for demo
-        setIssues(mockIssues);
+        setIssues([]);
       }
     } catch (err) {
-      setIssues(mockIssues);
+      console.error('Error fetching issues:', err);
+      setIssues([]);
     } finally {
       setLoadingIssues(false);
     }
@@ -412,20 +412,22 @@ function CitizenHomePage() {
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold text-[#f36f56] uppercase tracking-wider">{issue.category}</span>
-                            <span className="text-xs text-[#58423d]">• {issue.date}</span>
+                            <span className="text-xs text-[#58423d]">• {issue.date || (issue.createdAt ? new Date(issue.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently')}</span>
                           </div>
                           <h4 className="text-base font-bold text-[#191c1e]">{issue.title}</h4>
                           <p className="text-xs text-[#58423d] flex items-center gap-1">
                             <span className="material-symbols-outlined text-sm">location_on</span>
-                            {issue.location}
+                            {typeof issue.location === 'object' && issue.location !== null
+                              ? [issue.location.address, issue.location.district, issue.location.state].filter(Boolean).join(', ')
+                              : (issue.location || 'Location not specified')}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              issue.status === 'Resolved'
+                              issue.status === 'Resolved' || issue.status === 'resolved'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : issue.status === 'In Progress'
+                                : issue.status === 'In Progress' || issue.status === 'in_progress'
                                 ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                 : 'bg-orange-50 text-orange-700 border border-orange-200'
                             }`}
@@ -434,7 +436,7 @@ function CitizenHomePage() {
                           </span>
                           <span className="text-xs text-[#58423d] font-semibold flex items-center gap-1">
                             <span className="material-symbols-outlined text-sm text-[#f36f56]">thumb_up</span>
-                            {issue.upvotes} Upvotes
+                            {issue.upvotes || 0} Upvotes
                           </span>
                         </div>
                       </div>

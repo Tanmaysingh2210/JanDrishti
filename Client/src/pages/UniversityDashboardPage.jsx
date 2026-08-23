@@ -798,24 +798,50 @@ function UniversityDashboardPage() {
                       Field Inspections &amp; Site Media
                     </h3>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
-                        <div className="w-full h-40 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2 relative overflow-hidden">
-                          <span className="material-symbols-outlined text-4xl text-[#2F36ED] mb-1">image</span>
-                          <span className="text-xs font-bold">Field Site Photo</span>
-                        </div>
-                        <span className="text-xs font-semibold text-[#191c1e]">Geotagged Photo Upload</span>
+                    {((selectedChallenge.photos?.length || 0) + (selectedChallenge.videos?.length || 0)) === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-10 text-[#58423d] bg-[#f8f9fb] rounded-xl border border-[#e0e3e5]">
+                        <span className="material-symbols-outlined text-4xl text-[#e0e3e5] mb-2">image_not_supported</span>
+                        <p className="text-xs font-semibold">No media uploaded by citizen</p>
                       </div>
-
-                      <div className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
-                        <div className="w-full h-40 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2 relative overflow-hidden">
-                          <span className="material-symbols-outlined text-4xl text-[#F36F56] mb-1">analytics</span>
-                          <span className="text-xs font-bold">Lab Analysis &amp; Data Stream</span>
-                        </div>
-                        <span className="text-xs font-semibold text-[#191c1e]">Field Data Logs</span>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {(selectedChallenge.photos || []).map((photo, idx) => (
+                          <div key={photo._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                            <a href={photo.url} target="_blank" rel="noopener noreferrer" className="block">
+                              <img
+                                src={photo.url}
+                                alt={`Citizen Photo ${idx + 1}`}
+                                className="w-full h-40 object-cover rounded-lg mb-2 hover:opacity-90 transition-opacity"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div style={{ display: 'none' }} className="w-full h-40 bg-slate-200 rounded-lg flex flex-col items-center justify-center text-[#58423d] mb-2">
+                                <span className="material-symbols-outlined text-4xl text-[#2F36ED] mb-1">broken_image</span>
+                                <span className="text-xs font-bold">Image failed to load</span>
+                              </div>
+                            </a>
+                            <span className="text-xs font-semibold text-[#191c1e]">Geotagged Photo Upload #{idx + 1}</span>
+                            <p className="text-[11px] text-[#58423d]">Submitted by Citizen</p>
+                          </div>
+                        ))}
+                        {(selectedChallenge.videos || []).map((video, idx) => (
+                          <div key={video._id || idx} className="rounded-xl border border-[#e0e3e5] overflow-hidden bg-[#f8f9fb] p-3">
+                            <a href={video.url} target="_blank" rel="noopener noreferrer" className="block">
+                              <div className="w-full h-40 bg-slate-800 rounded-lg flex flex-col items-center justify-center mb-2 hover:opacity-90 transition-opacity">
+                                <span className="material-symbols-outlined text-4xl text-white mb-1">play_circle</span>
+                                <span className="text-xs font-bold text-white">Click to Play Video</span>
+                              </div>
+                            </a>
+                            <span className="text-xs font-semibold text-[#191c1e]">Field Data Log #{idx + 1}</span>
+                            <p className="text-[11px] text-[#58423d]">Submitted by Citizen</p>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                    )}
                   </div>
+
 
                   {/* LOCATION & GEOTAG */}
                   <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-sm space-y-4">
