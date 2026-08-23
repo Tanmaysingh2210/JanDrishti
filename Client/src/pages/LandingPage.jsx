@@ -71,34 +71,13 @@ function LandingPage() {
 
           <div className="flex gap-3 items-center">
             <button 
-              onClick={() => navigate('/dashboard')}
-              className="bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20 transition-all px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">dashboard</span>
-              Govt Portal
-            </button>
-            <button 
-              onClick={() => navigate('/university-dashboard')}
-              className="bg-emerald-green/10 text-emerald-green border border-emerald-green/30 hover:bg-emerald-green/20 transition-all px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">school</span>
-              Univ Portal
-            </button>
-            <button 
-              onClick={() => navigate('/industry-dashboard')}
-              className="bg-action-orange/10 text-action-orange border border-action-orange/30 hover:bg-action-orange/20 transition-all px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-base">factory</span>
-              Industry Portal
-            </button>
-            <button 
               onClick={() => navigate('/login')}
               className="text-primary hover:bg-surface-container-low transition-all px-4 py-2 rounded-xl text-label-sm font-label-sm border border-primary hidden md:block font-medium cursor-pointer"
             >
               Login
             </button>
             <button 
-              onClick={() => navigate('/login')}
+              onClick={() => navigate('/register')}
               className="bg-action-orange text-white hover:bg-opacity-90 transition-all px-4 py-2 rounded-xl text-label-sm font-label-sm font-semibold shadow-md shadow-action-orange/20 cursor-pointer"
             >
               Register
@@ -144,64 +123,50 @@ function LandingPage() {
             </div>
           </div>
 
-          {/* 4 Stakeholder Cards Grid */}
-          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
-            {[
-              {
-                id: 'citizens',
-                icon: 'groups',
-                title: 'Citizens',
-                desc: 'Voice localized challenges directly to problem solvers and track progress transparently.'
-              },
-              {
-                id: 'universities',
-                icon: 'school',
-                title: 'Universities',
-                desc: 'Turn academic research into practical civic deployment with dedicated government grants.'
-              },
-              {
-                id: 'industry',
-                icon: 'factory',
-                title: 'Industry',
-                desc: 'Scale innovations, offer expertise, and secure official government partnerships.'
-              },
-              {
-                id: 'government',
-                icon: 'account_balance',
-                title: 'Government',
-                desc: 'Oversee, fund, and validate impactful deployments across sovereign territories.'
-              }
-            ].map((card) => (
-              <div
-                key={card.id}
-                onClick={() => {
-                  setSelectedStakeholder(card.title);
-                  if (card.id === 'government') {
-                    navigate('/dashboard');
-                  } else if (card.id === 'universities') {
-                    navigate('/university-dashboard');
-                  } else if (card.id === 'industry') {
-                    navigate('/industry-dashboard');
-                  }
-                }}
-                className={`bg-surface-container-lowest p-6 rounded-xl custom-shadow border transition-all duration-200 group cursor-pointer ${selectedStakeholder === card.title
-                    ? 'border-primary ring-2 ring-primary/20 bg-primary-fixed/20'
-                    : 'border-surface-variant hover:border-primary'
-                  }`}
-              >
-                <span className="material-symbols-outlined text-4xl text-sovereign-navy mb-4 group-hover:text-primary transition-colors block" style={{ fontVariationSettings: "'FILL' 0" }}>
-                  {card.icon}
-                </span>
-                <h3 className="text-headline-md font-headline-md mb-2 text-sovereign-navy flex items-center justify-between">
-                  {card.title}
-                  <span className="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 text-primary transition-opacity">arrow_forward</span>
-                </h3>
-                <p className="text-body-md font-body-md text-on-surface-variant">
-                  {card.desc}
-                </p>
-              </div>
-            ))}
-          </div>
+            {/* 4 Stakeholder Cards Grid */}
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+              {[
+                {
+                  id: 'citizens',
+                  icon: 'groups',
+                  title: 'Citizens',
+                  desc: 'Voice localized challenges directly to problem solvers and track progress transparently.'
+                },
+                {
+                  id: 'universities',
+                  icon: 'school',
+                  title: 'Universities',
+                  desc: 'Turn academic research into practical civic deployment with dedicated government grants.'
+                },
+                {
+                  id: 'industry',
+                  icon: 'factory',
+                  title: 'Industry',
+                  desc: 'Scale innovations, offer expertise, and secure official government partnerships.'
+                },
+                {
+                  id: 'government',
+                  icon: 'account_balance',
+                  title: 'Government',
+                  desc: 'Oversee, fund, and validate impactful deployments across sovereign territories.'
+                }
+              ].map((card) => (
+                <div
+                  key={card.id}
+                  className="bg-surface-container-lowest p-6 rounded-xl custom-shadow border border-surface-variant"
+                >
+                  <span className="material-symbols-outlined text-4xl text-sovereign-navy mb-4 block" style={{ fontVariationSettings: "'FILL' 0" }}>
+                    {card.icon}
+                  </span>
+                  <h3 className="text-headline-md font-headline-md mb-2 text-sovereign-navy">
+                    {card.title}
+                  </h3>
+                  <p className="text-body-md font-body-md text-on-surface-variant">
+                    {card.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
         </section>
 
         {/* Impact at a Glance Section */}

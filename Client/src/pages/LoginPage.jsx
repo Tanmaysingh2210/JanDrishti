@@ -8,17 +8,69 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMessage(null);
+    setLoading(true);
+
+    let endpoint = '';
+    let payload = {};
+
     if (role === 'govt') {
-      navigate('/dashboard');
+      endpoint = 'http://localhost:3000/api/government/auth/login';
+      payload = { email, password };
     } else if (role === 'univ') {
-      navigate('/university-dashboard');
+      endpoint = 'http://localhost:3000/api/university/auth/login';
+      payload = { email, password };
     } else if (role === 'industry') {
-      navigate('/industry-dashboard');
-    } else {
-      navigate('/');
+      endpoint = 'http://localhost:3000/api/industry/auth/login';
+      payload = { email, password };
+    } else if (role === 'citizen') {
+      endpoint = 'http://localhost:3000/api/citizen/auth/login';
+      payload = { identifier: email, password };
+    }
+
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Login failed. Please check your credentials.');
+      }
+
+      // Store auth session
+      if (data.token) {
+        localStorage.setItem('jandrishti_token', data.token);
+      }
+      localStorage.setItem('jandrishti_user_role', role);
+      localStorage.setItem('jandrishti_user_info', JSON.stringify(data.user || data.citizen || data.industry || {}));
+
+      // Route to respective dashboards
+      if (role === 'govt') {
+        navigate('/dashboard');
+      } else if (role === 'univ') {
+        navigate('/university-dashboard');
+      } else if (role === 'industry') {
+        navigate('/industry-dashboard');
+      } else {
+        navigate('/citizen-home');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setErrorMessage(err.message || 'Connection error. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -46,10 +98,18 @@ function LoginPage() {
 
         {/* Login Card */}
         <div className="bg-surface-container-lowest rounded-[16px] p-8 custom-shadow border border-surface-container-low">
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <h2 className="text-2xl font-bold text-sovereign-navy mb-2 tracking-tight">WELCOME BACK</h2>
             <p className="text-sm text-on-surface-variant">Sign in to continue to JanDrishti</p>
           </div>
+
+          {/* Error Banner */}
+          {errorMessage && (
+            <div className="mb-6 p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold flex items-center gap-2">
+              <span className="material-symbols-outlined text-base shrink-0">error</span>
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Role Selector */}
@@ -88,7 +148,7 @@ function LoginPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-primary-container mb-1.5" htmlFor="email">
-                  Email / Phone
+                  {role === 'citizen' ? 'Email / Mobile Number' : 'Email Address'}
                 </label>
                 <input
                   id="email"
@@ -96,7 +156,7 @@ function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your Email/Phone no"
+                  placeholder={role === 'citizen' ? 'Enter email or mobile' : 'Enter institutional email'}
                   className="w-full bg-surface-container-low border border-outline-variant rounded-xl px-4 py-3 text-sm focus:border-primary-container focus:ring-2 focus:ring-primary-fixed-dim transition-all outline-none"
                 />
               </div>
@@ -148,13 +208,21 @@ function LoginPage() {
             <div>
               <button
                 type="submit"
-                className="w-full bg-primary-container text-white rounded-xl py-3 px-4 text-sm font-bold hover:bg-secondary-container transition-colors focus:ring-4 focus:ring-primary-fixed-dim outline-none shadow-md cursor-pointer"
+                disabled={loading}
+                className="w-full bg-primary-container text-white rounded-xl py-3 px-4 text-sm font-bold hover:bg-secondary-container transition-colors focus:ring-4 focus:ring-primary-fixed-dim outline-none shadow-md cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                LOGIN
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>LOGGING IN...</span>
+                  </>
+                ) : (
+                  'LOGIN'
+                )}
               </button>
               <p className="text-center text-xs text-on-surface-variant mt-4 flex items-center justify-center gap-1.5">
                 <span className="material-symbols-outlined text-[15px] text-emerald-green">lock</span>
-                Secure Government Institutional Login
+                Secure Institutional Authentication
               </p>
             </div>
           </form>

@@ -1,0 +1,48 @@
+{
+	"info": {
+		"_postman_id": "c3d4e5f6-a7b8-9012-cdef-3456789012cd",
+		"name": "JanDrishti - Register University",
+		"description": "Postman Collection for registering a University and its Admin User in JanDrishti API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Register University",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"universityName\": \"Indian Institute of Technology Ranchi\",\n  \"shortName\": \"IIT Ranchi\",\n  \"code\": \"IITR-JH\",\n  \"type\": \"central\",\n  \"email\": \"info@iitranchi.ac.in\",\n  \"phone\": \"9876543210\",\n  \"website\": \"https://iitranchi.ac.in\",\n  \"address\": \"Main Campus, Namkum\",\n  \"district\": \"Ranchi\",\n  \"state\": \"Jharkhand\",\n  \"representativeName\": \"Prof. A. K. Sharma\",\n  \"representativeEmail\": \"admin@iitranchi.ac.in\",\n  \"representativeMobile\": \"9876543211\",\n  \"representativeDesignation\": \"Dean of Research & Innovation\",\n  \"password\": \"UnivAdmin@123\",\n  \"confirmPassword\": \"UnivAdmin@123\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/university/auth/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"university",
+						"auth",
+						"register"
+					]
+				},
+				"description": "Registers a new University and creates its initial university_admin user."
+			},
+			"response": []
+		}
+	]
+}

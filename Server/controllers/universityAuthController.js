@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import UniversityUser from "../models/universityUser.js";
 import University from "../models/university.js";
 
-const generateUniversityToken = (user) => {
+export const generateUniversityToken = (user) => {
   return jwt.sign(
     {
       userId: user._id,
@@ -18,7 +18,7 @@ const generateUniversityToken = (user) => {
   );
 };
 
-const setUniversityCookie = (res, token) => {
+export const setUniversityCookie = (res, token) => {
   res.cookie("university_token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

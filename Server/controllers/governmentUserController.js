@@ -5,14 +5,8 @@ import GovernmentUser from "../models/governmentUser.js";
 
 export const createGovernmentUser = async (req, res) => {
   try {
-    if (req.user.role !== "government_admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Only government admin can create government users",
-      });
-    }
-
     const {
+      governmentId,
       fullName,
       email,
       mobileNumber,
@@ -53,6 +47,7 @@ export const createGovernmentUser = async (req, res) => {
     }
 
     const allowedRoles = [
+      "government_admin",
       "state_official",
       "district_official",
       "department_official",
@@ -87,9 +82,16 @@ export const createGovernmentUser = async (req, res) => {
       });
     }
 
-    const government = await Government.findById(
-      req.user.governmentId
-    );
+    const targetGovernmentId = governmentId;
+
+    if (!targetGovernmentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Government organization ID is required",
+      });
+    }
+
+    const government = await Government.findById(targetGovernmentId);
 
     if (!government) {
       return res.status(404).json({
@@ -118,7 +120,7 @@ export const createGovernmentUser = async (req, res) => {
 
     if (employeeId) {
       const existingEmployee = await GovernmentUser.findOne({
-        governmentId: req.user.governmentId,
+        governmentId: targetGovernmentId,
         employeeId: employeeId.trim(),
       });
 
@@ -133,7 +135,7 @@ export const createGovernmentUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const governmentUser = await GovernmentUser.create({
-      governmentId: req.user.governmentId,
+      governmentId: targetGovernmentId,
       fullName: fullName.trim(),
       email: normalizedEmail,
       mobileNumber: normalizedMobile || undefined,

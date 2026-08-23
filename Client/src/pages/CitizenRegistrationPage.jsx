@@ -60,7 +60,7 @@ function CitizenRegistrationPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/citizen/auth/register', {
+      const response = await fetch('http://localhost:3000/api/citizen/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -82,13 +82,15 @@ function CitizenRegistrationPage() {
         throw new Error(data.message || 'Registration failed');
       }
 
-      setSuccessMsg('Account created successfully! Redirecting...');
+      setSuccessMsg('Account created successfully! Redirecting to your dashboard...');
       if (data.token) {
-        localStorage.setItem('citizen_token', data.token);
+        localStorage.setItem('jandrishti_token', data.token);
       }
+      localStorage.setItem('jandrishti_user_role', 'citizen');
+      localStorage.setItem('jandrishti_user_info', JSON.stringify(data.citizen || {}));
 
       setTimeout(() => {
-        navigate('/login');
+        navigate('/citizen-home');
       }, 2000);
     } catch (err) {
       setError(err.message || 'Failed to connect to the server');

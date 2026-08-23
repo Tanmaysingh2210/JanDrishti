@@ -2,10 +2,26 @@ import jwt from "jsonwebtoken";
 
 const citizenAuth = (req, res, next) => {
   try {
+    // -----------------------------------------
+    // Get token from cookie OR Authorization header
+    // -----------------------------------------
 
-    const token =
-      req.cookies.citizen_token;
+    let token = req.cookies?.citizen_token;
 
+    // React Native will use:
+    // Authorization: Bearer <token>
+
+    if (!token && req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+
+      if (authHeader.startsWith("Bearer ")) {
+        token = authHeader.substring(7);
+      }
+    }
+
+    // -----------------------------------------
+    // No token
+    // -----------------------------------------
 
     if (!token) {
       return res.status(401).json({
@@ -14,14 +30,19 @@ const citizenAuth = (req, res, next) => {
       });
     }
 
+    // -----------------------------------------
+    // Verify JWT
+    // -----------------------------------------
 
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET
     );
 
+    // -----------------------------------------
+    // Make sure token belongs to citizen
+    // -----------------------------------------
 
-    // Make sure this token belongs to a citizen
     if (decoded.userType !== "citizen") {
       return res.status(403).json({
         success: false,
@@ -29,9 +50,11 @@ const citizenAuth = (req, res, next) => {
       });
     }
 
+    // -----------------------------------------
+    // Attach user information
+    // -----------------------------------------
 
     req.user = decoded;
-
 
     next();
 
@@ -43,7 +66,6 @@ const citizenAuth = (req, res, next) => {
         message: "Session expired. Please login again",
       });
     }
-
 
     return res.status(401).json({
       success: false,

@@ -21,10 +21,10 @@ const onboardingData = [
     title1Color: "#F76B57",
     title2Color: "#2937D8",
 
-    description: "Report issues. Alert authorities.\nBuild a better community together.",
+    description: "See an issue? Report it in seconds and help make your community better.",
 
     bottomText:
-      "Spot a pothole, overflowing bin, or broken\nstreetlight? Capture it and let NagarDrishti\ntake care of the rest.",
+      "Submit real community challenges with photos, location and supporting details.",
   },
 
   {
@@ -35,54 +35,56 @@ const onboardingData = [
     title2Color: "#F76B57",
 
     description:
-      "NagarDrishti automatically understands your\nreports and routes them to the right\ndepartments.",
+      "JanDrishti analyzes every challenge, identifies its domain, detects duplicates and prioritizes what needs attention.",
 
     features: [
       {
-        icon: "✣",
+        icon: require("../assets/ai.png"),
         text: "AI Detection",
       },
       {
-        icon: "!",
+        icon: require("../assets/priority.png"),
         text: "Smart Priority",
       },
       {
-        icon: "⌁",
-        text: "Intelligent Routing",
+        icon: require("../assets/duplicate.png"),
+        text: "Duplicate Detection",
       },
     ],
   },
 
   {
     image: require("../assets/onboarding3.png"),
-    title1: "One Problem.",
-    title2: "One Powerful Voice",
+    title1: "Track.",
+    title2: "Every Step",
     title1Color: "#F76B57",
     title2Color: "#2937D8",
 
     description:
-      "We consolidate duplicate reports into a single\nactionable issue, making the community voice\nstronger.",
+      "Stay informed as your report moves from submission to verification, assignment and resolution.",
 
     features: [
       {
-        icon: "✣",
-        text: "AI Duplicate Detection",
+        icon: require("../assets/realtime.png"),
+        text: "Real Time Updates",
       },
       {
-        icon: "👍",
-        text: "Community Upvotes",
+        icon: require("../assets/status.png"),
+        text: "Status Tracking",
       },
       {
-        icon: "⌁",
-        text: "Hotspot Detection",
+        icon: require("../assets/notification.png"),
+        text: "Notifications",
       },
     ],
   },
 
   {
     image: require("../assets/onboarding4.png"),
-    title1: "From Report to Resolution",
-    title1Color: "#F76B57",
+    title1: "From Report to",
+    title2: "Resolution",
+    title2Color: "#F76B57",
+    title1Color: "#0130da",
 
     description:
       "Track every step of your report in real-time and\nverify when the work is done.",
@@ -90,7 +92,7 @@ const onboardingData = [
 ];
 
 export default function Index() {
-    const router = useRouter();
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(0);
 
   const current = onboardingData[currentPage];
@@ -112,13 +114,13 @@ export default function Index() {
   };
 
 
-const handleCreateAccount = () => {
-  router.push("/signup");
-};
+  const handleCreateAccount = () => {
+    router.push("/signup");
+  };
 
-const handleLogin = () => {
-  router.push("/login");
-};
+  const handleLogin = () => {
+    router.push("/login");
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -202,9 +204,12 @@ const handleLogin = () => {
                   style={styles.featureBox}
                 >
                   <View style={styles.featureIcon}>
-                    <Text style={styles.featureIconText}>
-                      {feature.icon}
-                    </Text>
+                    <Image
+                      source={feature.icon}
+                      style={styles.featureIconImage}
+                      resizeMode="contain"
+                    />
+
                   </View>
 
                   <Text style={styles.featureText}>
@@ -416,46 +421,40 @@ const styles = StyleSheet.create({
   /* ================= FEATURES ================= */
 
   featuresContainer: {
-    width: "94%",
-    marginTop: -2,
-    gap: 9,
-  },
+  width: "100%",
+  marginTop: 8,
+  gap: 9,
+  alignItems: "center",
+},
 
-  featureBox: {
-    width: "100%",
-    height: 44,
-    borderWidth: 1,
-    borderColor: "#999999",
-    borderRadius: 10,
-    backgroundColor: "#F5F6F7",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 18,
-  },
+featureBox: {
+  width: "70%",
+  height: 40,
+  borderRadius: 19,
+  backgroundColor: "#B9C7FF",
+  flexDirection: "row",
+  alignItems: "center",
+  paddingHorizontal: 10,
+},
 
-  featureIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: "#B7B7B7",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 20,
-  },
+featureIcon: {
+  width: 35,
+  height: 35,
+  alignItems: "center",
+  justifyContent: "center",
+  marginRight: 7,
+},
 
-  featureIconText: {
-    color: "#2852D9",
-    fontSize: 17,
-    fontWeight: "600",
-  },
+featureIconImage: {
+  width: 18,
+  height: 18,
+},
 
-  featureText: {
-    color: "#111111",
-    fontSize: 16,
-    fontWeight: "400",
-  },
-
+featureText: {
+  color: "#2937D8",
+  fontSize: 14,
+  fontWeight: "500",
+},
   /* ================= PAGE 1 TEXT ================= */
 
   bottomDescription: {
@@ -471,13 +470,13 @@ const styles = StyleSheet.create({
 
   finalButtons: {
     width: "90%",
-    marginTop: 7,
+    marginTop: 2,
     gap: 10,
   },
 
   createAccountButton: {
     width: "100%",
-    height: 32,
+    height: 36,
     borderRadius: 18,
     backgroundColor: "#F76B57",
     alignItems: "center",
@@ -575,4 +574,9 @@ const styles = StyleSheet.create({
     width: 87,
     height: 39,
   },
+
+  featureIconImage: {
+  width: 22,
+  height: 22,
+},
 });
