@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import DarkModeToggle from '../components/DarkModeToggle';
 
 function IndustryDashboardPage() {
   const navigate = useNavigate();
@@ -154,6 +155,7 @@ function IndustryDashboardPage() {
 
         {/* Trailing Actions */}
         <div className="flex items-center gap-3">
+          <DarkModeToggle />
           {/* Notifications Dropdown */}
           <div className="relative">
             <button

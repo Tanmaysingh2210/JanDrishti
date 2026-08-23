@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import DarkModeToggle from '../components/DarkModeToggle';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -87,13 +88,16 @@ function LoginPage() {
               Societal Innovation Collaboration Portal
             </p>
           </div>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors border border-outline-variant rounded-full px-4 py-2 bg-surface cursor-pointer shadow-sm hover:border-primary"
-          >
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-            Back to Landing Page
-          </Link>
+          <div className="flex items-center gap-3">
+            <DarkModeToggle />
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors border border-outline-variant rounded-full px-4 py-2 bg-surface cursor-pointer shadow-sm hover:border-primary"
+            >
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              Back to Landing Page
+            </Link>
+          </div>
         </header>
 
         {/* Login Card */}

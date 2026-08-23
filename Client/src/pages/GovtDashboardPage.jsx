@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import DarkModeToggle from '../components/DarkModeToggle';
 
 function GovtDashboardPage() {
   const navigate = useNavigate();
@@ -341,7 +342,8 @@ function GovtDashboardPage() {
         </div>
 
         {/* Top Right Profile Button with Dropdown Menu */}
-        <div className="flex items-center justify-end w-1/3">
+        <div className="flex items-center justify-end w-1/3 gap-3">
+          <DarkModeToggle />
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowProfileDropdown((prev) => !prev)}
