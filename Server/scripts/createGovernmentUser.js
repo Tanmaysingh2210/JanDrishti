@@ -1,16 +1,16 @@
-import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
 
-import connectDB from "../config/db.js";
 import GovernmentUser from "../models/governmentUser.js";
+const MONGO_URI =
+  "mongodb+srv://wallbookservice_db_user:kqNT5kXUnwHnqYHy@cluster0.jlglxtw.mongodb.net/JanDrishti";
 
-dotenv.config();
 
 const createGovernmentUser = async () => {
   try {
-    await connectDB();
+    await mongoose.connect(MONGO_URI);
 
-    const governmentId = "6a8a51688bcbf9782ef077d4";
+    const governmentId = "6a8ae9e112b6d8e82de07eb7";
 
     const existingUser = await GovernmentUser.findOne({
       email: "rajesh.kumar@gov.in",

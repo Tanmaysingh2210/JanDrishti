@@ -1,12 +1,13 @@
-import dotenv from "dotenv";
-import connectDB from "../config/db.js";
 import Government from "../models/government.js";
+import mongoose from "mongoose";
 
-dotenv.config();
 
 const createGovernment = async () => {
+
+  const MONGO_URI = "mongodb+srv://wallbookservice_db_user:kqNT5kXUnwHnqYHy@cluster0.jlglxtw.mongodb.net/JanDrishti";
+  
   try {
-    await connectDB();
+    await mongoose.connect(MONGO_URI);
 
     const government = await Government.create({
       name: "Department of Urban Development & Housing",
