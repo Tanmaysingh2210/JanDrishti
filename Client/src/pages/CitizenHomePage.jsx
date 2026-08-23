@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCloudinaryUpload } from '../hooks/useCloudinaryUpload';
+import DarkModeToggle from '../components/DarkModeToggle';
 
 function CitizenHomePage() {
   const navigate = useNavigate();
@@ -288,6 +289,7 @@ function CitizenHomePage() {
 
           {/* Right Top Actions */}
           <div className="flex items-center gap-4">
+            <DarkModeToggle />
             <button className="text-[#58423d] hover:text-[#f36f56] transition-colors flex items-center gap-1 text-xs font-semibold cursor-pointer">
               <span className="material-symbols-outlined text-lg">language</span>
               <span className="hidden sm:inline">English</span>

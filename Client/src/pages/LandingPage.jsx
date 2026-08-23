@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import DarkModeToggle from '../components/DarkModeToggle';
 
 function LandingPage() {
   const navigate = useNavigate();
@@ -70,6 +71,7 @@ function LandingPage() {
           </div>
 
           <div className="flex gap-3 items-center">
+            <DarkModeToggle />
             <button 
               onClick={() => navigate('/login')}
               className="text-primary hover:bg-surface-container-low transition-all px-4 py-2 rounded-xl text-label-sm font-label-sm border border-primary hidden md:block font-medium cursor-pointer"
