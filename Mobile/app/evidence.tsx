@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { API_URL } from "../constants/api";
-import * as SecureStore from "expo-secure-store";
+
 import {
     View,
     Text,
@@ -43,6 +42,10 @@ export default function EvidenceScreen() {
         setPreviewItem(item);
     };
 
+    // Cloudinary direct upload (unsigned preset — no server relay)
+    const CLOUDINARY_CLOUD = "ds4gk8wwc";
+    const CLOUDINARY_PRESET = "ghost_chat_unsigned";
+
     const uploadEvidence = async (
         uri: string,
         type: "image" | "video",
@@ -51,80 +54,51 @@ export default function EvidenceScreen() {
         try {
             setLoading(true);
 
-            const token =
-                await SecureStore.getItemAsync(
-                    "citizen_token"
-                );
-
-            if (!token) {
-                Alert.alert(
-                    "Session Error",
-                    "Please login again."
-                );
-
-                router.replace("/login");
-
-                return null;
-            }
+            const resourceType = type === "video" ? "video" : "image";
+            const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/${resourceType}/upload`;
 
             const formData = new FormData();
-
             formData.append("file", {
                 uri,
                 name: fileName,
-                type:
-                    type === "image"
-                        ? "image/jpeg"
-                        : "video/mp4",
+                type: type === "image" ? "image/jpeg" : "video/mp4",
             } as any);
-
-            const response = await fetch(
-                `${API_URL}/api/citizen/issues/evidence`,
-                {
-                    method: "POST",
-
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-
-                    body: formData,
-                }
+            formData.append("upload_preset", CLOUDINARY_PRESET);
+            formData.append(
+                "folder",
+                type === "video"
+                    ? "jandrishti/citizen/videos"
+                    : "jandrishti/citizen/photos"
             );
+
+            const response = await fetch(uploadUrl, {
+                method: "POST",
+                body: formData,
+            });
 
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(
-                    data.message ||
-                    "Failed to upload evidence"
-                );
+                console.error("Cloudinary error:", data);
+                throw new Error(data.error?.message || "Cloudinary upload failed");
             }
 
-            console.log("Cloudinary upload response:", data);
+            console.log("Cloudinary upload OK:", data.secure_url);
 
             return {
-                url: data.url,
-                publicId: data.publicId,
+                url: data.secure_url,
+                publicId: data.public_id,
             };
 
         } catch (error) {
-
-            console.error(
-                "Evidence upload error:",
-                error
-            );
-
+            console.error("Evidence upload error:", error);
             Alert.alert(
                 "Upload Failed",
-                "Could not upload the evidence. Please try again."
+                "Could not upload the evidence. Please check your connection and try again."
             );
-
             return null;
-
         } finally {
-
             setLoading(false);
-
         }
     };
     // ==========================================
@@ -287,7 +261,7 @@ export default function EvidenceScreen() {
         }
 
         router.push({
-            pathname: "/category",
+            pathname: "/description",
             params: {
                 evidence: JSON.stringify(evidence),
             },

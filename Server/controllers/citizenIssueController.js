@@ -43,6 +43,14 @@ const LABEL_MAP = {
 
 export const uploadEvidence = async (req, res) => {
   try {
+    console.log("uploadEvidence hit - req.file:", req.file ? {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      bufferLength: req.file.buffer?.length,
+    } : "UNDEFINED");
+    console.log("Content-Type header:", req.headers["content-type"]);
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -81,10 +89,16 @@ export const uploadEvidence = async (req, res) => {
       publicId: result.public_id,
     });
   } catch (error) {
-    console.error("Upload evidence error:", error);
+    console.error("Upload evidence error:", error?.message || error);
+    console.error("Cloudinary config check:", {
+      name: !!process.env.CLOUDINARY_NAME,
+      key: !!process.env.CLOUDINARY_KEY,
+      secret: !!process.env.CLOUDINARY_SECRET,
+      nameVal: process.env.CLOUDINARY_NAME,
+    });
     return res.status(500).json({
       success: false,
-      message: "Failed to upload evidence file",
+      message: error?.message || "Failed to upload evidence file",
     });
   }
 };
